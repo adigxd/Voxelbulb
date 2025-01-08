@@ -1,0 +1,17 @@
+# Testing
+test*
+
+# Secrets
+key.*
+
+# Extra files
+resources/extra/
+
+# Directory shortcuts
+*.bat
+
+# TODO
+TODO.txt
+
+# pycache
+__pycache__
