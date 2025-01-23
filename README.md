@@ -1,6 +1,6 @@
 # Graphics-3D-OpenGL
 
-3D engine with noise-based terrain generation made from scratch with OpenGL
+Voxel engine with noise-based terrain generation made from scratch with OpenGL
 
 ### Shaders:
 
