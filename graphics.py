@@ -1,4 +1,4 @@
-from map import Map
+from map_1 import Map
 
 import pygame
 from pygame.locals import *
@@ -19,7 +19,7 @@ _SEE_MAX   = float(os.getenv('SEE_MAX'))
 _SPD       = float(os.getenv('SPD'))
 _SEN       = float(os.getenv('SEN'))
 _SIZ       = int(os.getenv('SIZ'))
-_ALT_DEC   = int(os.getenv('ALT_DEC'))
+_ALT_DEC   = np.clip(int(os.getenv('ALT_DEC')), 1, 256)
 _LIN       = float(os.getenv('LIN'))
 _DBG_SEE   = int(os.getenv('DBG_SEE'))
 _PTH_SHA_V = os.getenv('PTH_SHA_V')
@@ -162,41 +162,57 @@ def draw_axes():
 def _GEN_MAP(SIZ=_SIZ, ALT_DEC=_ALT_DEC):
     MAP_OBJ = Map(SIZ)   # SET UP NOISE MAP USING SQUARE SIZE OF TERRAIN
     MAP = MAP_OBJ._MAP() # GENERATE NOISE MAP
+    
+    
 
     GEN_V_ARR = []
     GEN_IDX_ARR = []
 
     for Y in range(MAP.shape[0]):
         for X in range(MAP.shape[1]):
-            A = np.int32(MAP[Y, X] // ALT_DEC)
+            for A in range(0, MAP[Y, X] // ALT_DEC):
+                SIZ_FIX = _SIZ // 2
 
-            SIZ_FIX = _SIZ // 2
+                # print(MAP[Y, X], "-> X=", X - SIZ_FIX, " Y=", Y - SIZ_FIX , " A=", A)
 
-            # print(MAP[Y, X], "-> X=", X - SIZ_FIX, " Y=", Y - SIZ_FIX , " A=", A)
+                # BROKEN !
+                '''V_ARR = [
+                    (X - SIZ_FIX - 1, A - 1, Y - SIZ_FIX - 1),
+                    (X - SIZ_FIX + 1, A - 1, Y - SIZ_FIX - 1),
+                    (X - SIZ_FIX + 1, A - 1, Y - SIZ_FIX + 1),
+                    (X - SIZ_FIX - 1, A - 1, Y - SIZ_FIX + 1),
+                    (X - SIZ_FIX - 1, A + 1, Y - SIZ_FIX - 1),
+                    (X - SIZ_FIX + 1, A + 1, Y - SIZ_FIX - 1),
+                    (X - SIZ_FIX + 1, A + 1, Y - SIZ_FIX + 1),
+                    (X - SIZ_FIX - 1, A + 1, Y - SIZ_FIX + 1)
+                ]'''
+                
+                X_FIX = X - SIZ_FIX
+                Y_FIX = Y - SIZ_FIX
+                
+                V_ARR = [
+                    (X_FIX, A, Y_FIX),
+                    (X_FIX + 1, A, Y_FIX),
+                    (X_FIX + 1, A, Y_FIX + 1),
+                    (X_FIX, A, Y_FIX + 1),
+                    (X_FIX, A + 1, Y_FIX),
+                    (X_FIX + 1, A + 1, Y_FIX),
+                    (X_FIX + 1, A + 1, Y_FIX + 1),
+                    (X_FIX, A + 1, Y_FIX + 1)
+                ]
 
-            V_ARR = [
-                (X - SIZ_FIX - 1, A - 1, Y - SIZ_FIX - 1),
-                (X - SIZ_FIX + 1, A - 1, Y - SIZ_FIX - 1),
-                (X - SIZ_FIX + 1, A - 1, Y - SIZ_FIX + 1),
-                (X - SIZ_FIX - 1, A - 1, Y - SIZ_FIX + 1),
-                (X - SIZ_FIX - 1, A + 1, Y - SIZ_FIX - 1),
-                (X - SIZ_FIX + 1, A + 1, Y - SIZ_FIX - 1),
-                (X - SIZ_FIX + 1, A + 1, Y - SIZ_FIX + 1),
-                (X - SIZ_FIX - 1, A + 1, Y - SIZ_FIX + 1)
-            ]
+                F_ARR = [
+                    (0, 1, 2), (0, 2, 3), # D
+                    (4, 5, 6), (4, 6, 7), # U
+                    (0, 1, 5), (0, 5, 4), # F
+                    (2, 3, 7), (2, 7, 6), # B
+                    (0, 3, 7), (0, 7, 4), # L
+                    (1, 2, 6), (1, 6, 5)  # R
+                ]
 
-            F_ARR = [
-                (0, 1, 2), (0, 2, 3), # D
-                (4, 5, 6), (4, 6, 7), # U
-                (0, 1, 5), (0, 5, 4), # F
-                (2, 3, 7), (2, 7, 6), # B
-                (0, 3, 7), (0, 7, 4), # L
-                (1, 2, 6), (1, 6, 5)  # R
-            ]
-
-            IDX = len(GEN_V_ARR)    # Get the current length of the vertex array
-            GEN_V_ARR.extend(V_ARR) # Add the vertices for this cube
-            GEN_IDX_ARR.extend([(A + IDX, B + IDX, C + IDX) for A, B, C in F_ARR])
+                IDX = len(GEN_V_ARR)    # Get the current length of the vertex array
+                GEN_V_ARR.extend(V_ARR) # Add the vertices for this cube
+                GEN_IDX_ARR.extend([(A + IDX, B + IDX, C + IDX) for A, B, C in F_ARR])
     
     print(len(GEN_V_ARR), " -> ", len(GEN_IDX_ARR))
 
