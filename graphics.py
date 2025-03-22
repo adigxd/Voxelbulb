@@ -46,19 +46,19 @@ class Camera:
         self.rot[0] = max(-89, min(89, self.rot[0]))
         
         # Calculate forward and right vectors
-        yaw = math.radians(-self.rot[1])
+        yaw = math.radians(self.rot[1])
         pitch = math.radians(self.rot[0])
         
         forward = [
-            math.sin(-yaw),
+            math.sin(yaw),
             0,
-            -math.cos(-yaw)
+            -math.cos(yaw)
         ]
         
         right = [
-            math.cos(-yaw),
+            math.cos(yaw),
             0,
-            math.sin(-yaw)
+            math.sin(yaw)
         ]
         
         # Movement
@@ -171,34 +171,35 @@ def _GEN_MAP(SIZ=_SIZ, ALT_DEC=_ALT_DEC):
     for Y in range(MAP.shape[0]):
         for X in range(MAP.shape[1]):
             for A in range(0, MAP[Y, X] // ALT_DEC):
+                # edges of map ; TODO: change this logic when infinite terrain gen (maybe ?)
+                if (Y != 0 and Y != MAP.shape[0] - 1) and (X != 0 and X != MAP.shape[1] - 1):
+                    # altitude edges of map
+                    if A != 0 and A != (MAP[Y, X] // ALT_DEC) - 1:
+                        # skip if completely surrounded
+                        A_MAX_Y_0 = MAP[Y - 1, X] // ALT_DEC
+                        A_MAX_Y_1 = MAP[Y + 1, X] // ALT_DEC
+                        A_MAX_X_0 = MAP[Y, X - 1] // ALT_DEC
+                        A_MAX_X_1 = MAP[Y, X + 1] // ALT_DEC
+                        
+                        # print(f'{A} : {A_MAX_Y_0} {A_MAX_Y_1} {A_MAX_X_0} {A_MAX_X_1}')
+                        
+                        if A < A_MAX_Y_0 and A < A_MAX_Y_1 and A < A_MAX_X_0 and A < A_MAX_X_1:
+                            continue
+                
                 SIZ_FIX = _SIZ // 2
-
-                # print(MAP[Y, X], "-> X=", X - SIZ_FIX, " Y=", Y - SIZ_FIX , " A=", A)
-
-                # BROKEN !
-                '''V_ARR = [
-                    (X - SIZ_FIX - 1, A - 1, Y - SIZ_FIX - 1),
-                    (X - SIZ_FIX + 1, A - 1, Y - SIZ_FIX - 1),
-                    (X - SIZ_FIX + 1, A - 1, Y - SIZ_FIX + 1),
-                    (X - SIZ_FIX - 1, A - 1, Y - SIZ_FIX + 1),
-                    (X - SIZ_FIX - 1, A + 1, Y - SIZ_FIX - 1),
-                    (X - SIZ_FIX + 1, A + 1, Y - SIZ_FIX - 1),
-                    (X - SIZ_FIX + 1, A + 1, Y - SIZ_FIX + 1),
-                    (X - SIZ_FIX - 1, A + 1, Y - SIZ_FIX + 1)
-                ]'''
                 
                 X_FIX = X - SIZ_FIX
                 Y_FIX = Y - SIZ_FIX
                 
                 V_ARR = [
-                    (X_FIX, A, Y_FIX),
-                    (X_FIX + 1, A, Y_FIX),
-                    (X_FIX + 1, A, Y_FIX + 1),
-                    (X_FIX, A, Y_FIX + 1),
-                    (X_FIX, A + 1, Y_FIX),
-                    (X_FIX + 1, A + 1, Y_FIX),
-                    (X_FIX + 1, A + 1, Y_FIX + 1),
-                    (X_FIX, A + 1, Y_FIX + 1)
+                    (X_FIX    , A    , Y_FIX    ), # 0
+                    (X_FIX + 1, A    , Y_FIX    ), # 1
+                    (X_FIX + 1, A    , Y_FIX + 1), # 2
+                    (X_FIX    , A    , Y_FIX + 1), # 3
+                    (X_FIX    , A + 1, Y_FIX    ), # 4
+                    (X_FIX + 1, A + 1, Y_FIX    ), # 5
+                    (X_FIX + 1, A + 1, Y_FIX + 1), # 6
+                    (X_FIX    , A + 1, Y_FIX + 1)  # 7
                 ]
 
                 F_ARR = [
