@@ -1,4 +1,4 @@
-from map_1 import Map
+from map_1 import __MAP__
 
 import pygame
 from pygame.locals import *
@@ -13,13 +13,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+_TIC       = int(os.getenv('TIC'))
 _FOV       = float(os.getenv('FOV'))
 _SEE_MIN   = float(os.getenv('SEE_MIN'))
 _SEE_MAX   = float(os.getenv('SEE_MAX'))
 _SPD       = float(os.getenv('SPD'))
 _SEN       = float(os.getenv('SEN'))
 _SIZ       = int(os.getenv('SIZ'))
-_ALT_DEC   = np.clip(int(os.getenv('ALT_DEC')), 1, 256)
 _LIN       = float(os.getenv('LIN'))
 _DBG_SEE   = int(os.getenv('DBG_SEE'))
 _PTH_SHA_V = os.getenv('PTH_SHA_V')
@@ -29,6 +29,7 @@ _COL_MIN   = tuple(map(float, os.getenv('COL_MIN').split(',')))
 _COL_MAX   = tuple(map(float, os.getenv('COL_MAX').split(',')))
 _ALT_MIN   = float(os.getenv('ALT_MIN'))
 _ALT_MAX   = float(os.getenv('ALT_MAX'))
+_CHK_DIS   = int(os.getenv('CHK_DIS'))
 
 class Camera:
     def __init__(self):
@@ -86,7 +87,6 @@ class Camera:
 
 
 
-# Function to create VAO, VBO, and EBO
 def _BUF(vertex_data, index_data):
     # Convert data to numpy arrays
     vertex_data = np.array(vertex_data, dtype=np.float32)
@@ -107,21 +107,19 @@ def _BUF(vertex_data, index_data):
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_data.nbytes, index_data, GL_STATIC_DRAW)
 
     # Define vertex attribute pointer for positions (location=0)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * vertex_data.itemsize, ctypes.c_void_p(0))
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * vertex_data.itemsize, ctypes.c_void_p(0)) # None last param ?
     glEnableVertexAttribArray(0)
 
     # Unbind VAO to avoid accidental modification
     glBindVertexArray(0)
 
-    return vao
+    return vao, vbo, ebo
 
-def _REN(vao, index_count):
-    index_count = index_count * 3 # 3 per index idk
-    glBindVertexArray(vao)
-    glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_INT, None)
+def _REN(VAO, CNT_IDX, VBO, EBO):
+    CNT_IDX = CNT_IDX * 3 # 3 per index idk
+    glBindVertexArray(VAO)
+    glDrawElements(GL_TRIANGLES, CNT_IDX, GL_UNSIGNED_INT, None)
     glBindVertexArray(0)
-
-
 
 def draw_axes():
     # Draw X-axis (Red)
@@ -159,64 +157,101 @@ def draw_axes():
         glVertex3f(LEN_MAX, 0, i)
     glEnd()
 
-def _GEN_MAP(SIZ=_SIZ, ALT_DEC=_ALT_DEC):
-    MAP_OBJ = Map(SIZ)   # SET UP NOISE MAP USING SQUARE SIZE OF TERRAIN
-    MAP = MAP_OBJ._MAP() # GENERATE NOISE MAP
-    
-    
 
+
+def _DIS(POS_A, POS_B):
+    return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2)
+
+VAO_ARR = {}
+
+def _GEN_MAP(MAP, POS, SIZ=_SIZ):
     GEN_V_ARR = []
     GEN_IDX_ARR = []
-
-    for Y in range(MAP.shape[0]):
-        for X in range(MAP.shape[1]):
-            for A in range(0, MAP[Y, X] // ALT_DEC):
-                # edges of map ; TODO: change this logic when infinite terrain gen (maybe ?)
-                if (Y != 0 and Y != MAP.shape[0] - 1) and (X != 0 and X != MAP.shape[1] - 1):
-                    # altitude edges of map
-                    if A != 0 and A != (MAP[Y, X] // ALT_DEC) - 1:
-                        # skip if completely surrounded
-                        A_MAX_Y_0 = MAP[Y - 1, X] // ALT_DEC
-                        A_MAX_Y_1 = MAP[Y + 1, X] // ALT_DEC
-                        A_MAX_X_0 = MAP[Y, X - 1] // ALT_DEC
-                        A_MAX_X_1 = MAP[Y, X + 1] // ALT_DEC
-                        
-                        # print(f'{A} : {A_MAX_Y_0} {A_MAX_Y_1} {A_MAX_X_0} {A_MAX_X_1}')
-                        
-                        if A < A_MAX_Y_0 and A < A_MAX_Y_1 and A < A_MAX_X_0 and A < A_MAX_X_1:
-                            continue
-                
-                SIZ_FIX = _SIZ // 2
-                
-                X_FIX = X - SIZ_FIX
-                Y_FIX = Y - SIZ_FIX
-                
-                V_ARR = [
-                    (X_FIX    , A    , Y_FIX    ), # 0
-                    (X_FIX + 1, A    , Y_FIX    ), # 1
-                    (X_FIX + 1, A    , Y_FIX + 1), # 2
-                    (X_FIX    , A    , Y_FIX + 1), # 3
-                    (X_FIX    , A + 1, Y_FIX    ), # 4
-                    (X_FIX + 1, A + 1, Y_FIX    ), # 5
-                    (X_FIX + 1, A + 1, Y_FIX + 1), # 6
-                    (X_FIX    , A + 1, Y_FIX + 1)  # 7
-                ]
-
-                F_ARR = [
-                    (0, 1, 2), (0, 2, 3), # D
-                    (4, 5, 6), (4, 6, 7), # U
-                    (0, 1, 5), (0, 5, 4), # F
-                    (2, 3, 7), (2, 7, 6), # B
-                    (0, 3, 7), (0, 7, 4), # L
-                    (1, 2, 6), (1, 6, 5)  # R
-                ]
-
-                IDX = len(GEN_V_ARR)    # Get the current length of the vertex array
-                GEN_V_ARR.extend(V_ARR) # Add the vertices for this cube
-                GEN_IDX_ARR.extend([(A + IDX, B + IDX, C + IDX) for A, B, C in F_ARR])
     
-    print(len(GEN_V_ARR), " -> ", len(GEN_IDX_ARR))
+    CHK_LOW_X = int(POS[0] - _CHK_DIS)
+    CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
+    CHK_LOW_Y = int(POS[1] - _CHK_DIS)
+    CHK_HIG_Y = int(POS[1] + _CHK_DIS + 1)
+    
+    REN_ARR = set()
+    
+    for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
+        for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
+            C_POS = (C_IDX_X, C_IDX_Y)
+            
+            if _DIS(POS, C_POS) <= _CHK_DIS:
+                REN_ARR.add(C_POS)
+            
+            REN_ARR.add(C_POS)
+    
+    for C_POS in REN_ARR:
+        if C_POS in VAO_ARR:
+            continue
+        
+        MAP._CHK_ADD(C_POS)
+        
+        CHK = MAP.CHK_ARR[C_POS]
+        
+        C_POS_X_Y = (_SIZ * C_POS[0], _SIZ * C_POS[1])
+        #print('> ', C_POS_X_Y)
+        
+        for Y in range(CHK.shape[0]):
+            for X in range(CHK.shape[1]):
+                for A in range(0, CHK[Y, X]):
+                    # edges of chk ; TODO: change this logic when infinite terrain gen (maybe ?)
+                    if (Y != 0 and Y != CHK.shape[0] - 1) and (X != 0 and X != CHK.shape[1] - 1):
+                        # altitude edges of map
+                        if A != 0 and A != CHK[Y, X] - 1:
+                            # skip if completely surrounded
+                            if A < CHK[Y - 1, X] and A < CHK[Y + 1, X] and A < CHK[Y, X - 1] and A < CHK[Y, X + 1]:
+                                continue
+                    
+                    #SIZ_FIX = _SIZ // 2 # not good for infinite terrain gen
+                    
+                    X_FIX = X + C_POS_X_Y[0] # - SIZ_FIX
+                    Y_FIX = Y + C_POS_X_Y[1] # - SIZ_FIX
+                    
+                    V_ARR = [
+                        (X_FIX    , A    , Y_FIX    ), # 0
+                        (X_FIX + 1, A    , Y_FIX    ), # 1
+                        (X_FIX + 1, A    , Y_FIX + 1), # 2
+                        (X_FIX    , A    , Y_FIX + 1), # 3
+                        (X_FIX    , A + 1, Y_FIX    ), # 4
+                        (X_FIX + 1, A + 1, Y_FIX    ), # 5
+                        (X_FIX + 1, A + 1, Y_FIX + 1), # 6
+                        (X_FIX    , A + 1, Y_FIX + 1)  # 7
+                    ]
 
+                    F_ARR = [
+                        (0, 1, 2), (0, 2, 3), # D
+                        (4, 5, 6), (4, 6, 7), # U
+                        (0, 1, 5), (0, 5, 4), # F
+                        (2, 3, 7), (2, 7, 6), # B
+                        (0, 3, 7), (0, 7, 4), # L
+                        (1, 2, 6), (1, 6, 5)  # R
+                    ]
+
+                    IDX = len(GEN_V_ARR)    # Get the current length of the vertex array
+                    GEN_V_ARR.extend(V_ARR) # Add the vertices for this cube
+                    GEN_IDX_ARR.extend([(V_A + IDX, V_B + IDX, V_C + IDX) for V_A, V_B, V_C in F_ARR])
+        
+        VAO, VBO, EBO = _BUF(np.array(GEN_V_ARR, dtype=np.float32), np.array(GEN_IDX_ARR, dtype=np.uint32))
+        VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
+        
+        GEN_V_ARR = []
+        GEN_IDX_ARR = []
+
+    #print(len(GEN_V_ARR), " -> ", len(GEN_IDX_ARR))
+    
+    REN_ARR_REM = set(VAO_ARR.keys()) - REN_ARR
+    #print('- ', REN_ARR_REM)
+    for C_POS in REN_ARR_REM:
+        VAO, _, VBO, EBO = VAO_ARR[C_POS]
+        glDeleteVertexArrays(1, [VAO])
+        glDeleteBuffers(1, [VBO])
+        glDeleteBuffers(1, [EBO])
+        del VAO_ARR[C_POS]
+    
     return np.array(GEN_V_ARR, dtype=np.float32), np.array(GEN_IDX_ARR, dtype=np.uint32)
 
 
@@ -392,7 +427,7 @@ def _GEN_MAT_P(FOV, ASPECT, NEAR, FAR):
 
 def main():
     pygame.init()
-    RES = (800, 600)
+    RES = (1024, 768)
     pygame.display.set_mode(RES, DOUBLEBUF | OPENGL)
 
     # Set up OpenGL
@@ -426,9 +461,12 @@ def main():
 
     glUseProgram(PRO_SHA)
 
-    GEN_V_ARR, GEN_IDX_ARR = _GEN_MAP(SIZ=_SIZ, ALT_DEC=_ALT_DEC)
 
-    VAO = _BUF(GEN_V_ARR, GEN_IDX_ARR)
+    POS_PRE = (0, 0)
+    MAP = __MAP__()
+    GEN_V_ARR, GEN_IDX_ARR = _GEN_MAP(MAP, (0, 0), SIZ=_SIZ)
+    #VAO = _BUF(GEN_V_ARR, GEN_IDX_ARR)
+
 
     # Initialize matrices
     RES_RAT = RES[0] / RES[1]
@@ -447,6 +485,16 @@ def main():
                 pygame.quit()
 
                 return
+        
+        
+        POS_CAM = (camera.pos[0], camera.pos[2])
+        POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ)
+        
+        if POS_PRE != POS:
+            POS_PRE = POS
+            GEN_V_ARR, GEN_IDX_ARR = _GEN_MAP(MAP, POS_PRE, SIZ=_SIZ)
+            #VAO = _BUF(GEN_V_ARR, GEN_IDX_ARR)
+        
         
         # Get mouse movement
         mouse_rel = pygame.mouse.get_rel()
@@ -473,13 +521,28 @@ def main():
         if _DBG_SEE != 0:
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
 
-        _REN(VAO, len(GEN_IDX_ARR))
+
+        #_REN(VAO, len(GEN_IDX_ARR))
+        CHK_LOW_X = int(POS[0] - _CHK_DIS)
+        CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
+        CHK_LOW_Y = int(POS[1] - _CHK_DIS)
+        CHK_HIG_Y = int(POS[1] + _CHK_DIS + 1)
+        
+        for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
+            for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
+                C_POS = (C_IDX_X, C_IDX_Y)
+                
+                if _DIS(POS, C_POS) > _CHK_DIS:
+                    continue
+                
+                _REN(*VAO_ARR[C_POS])
+
 
         if _DBG_SEE != 0:
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(_TIC)
 
 if __name__ == '__main__':
     main()

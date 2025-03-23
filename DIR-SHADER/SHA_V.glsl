@@ -12,9 +12,9 @@ uniform mat4 projection; // Perspective projection
 
 void main()
 {
-    ALT = POS.y;
-    X = POS.x;
-    Z = POS.z;
+    ALT = floor(POS.y);
+    X = floor(POS.x);
+    Z = floor(POS.z);
 
     gl_Position = projection * view * model * vec4(POS, 1.0); // Transform vertex
 }

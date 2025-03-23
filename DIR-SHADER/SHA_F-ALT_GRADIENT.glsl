@@ -18,7 +18,7 @@ uniform float ALT_MAX;
 
 void main()
 {
-    float ALT_FIX = clamp(ALT, ALT_MIN, ALT_MAX);
+    float ALT_FIX = ALT; clamp(ALT, ALT_MIN, ALT_MAX);
 
     float ALT_RAT = (ALT_FIX - ALT_MIN) / (ALT_MAX - ALT_MIN);
 

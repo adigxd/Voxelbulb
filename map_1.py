@@ -6,11 +6,26 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MAG = int(os.getenv('MAG')) # number of times to soften noise
+_SIZ = int(os.getenv('SIZ'))
+_MAG = int(os.getenv('MAG')) # number of times to soften noise
+_ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain
 
-class Map:
-    def __init__(self, SIZ=16):
+class __MAP__:
+    def __init__(self):
+        self.CHK_ARR = {}
+
+    def _CHK_ADD(self, POS):
+        #print(f'adding {POS}')
+        CHK = __CHK__(POS, _SIZ)
+        CHK._GEN()
+        self.CHK_ARR[POS] = CHK.IMG
+
+class __CHK__:
+    def __init__(self, POS, SIZ=16):
         self.SIZ = SIZ
+        self.POS = POS
+        self.IMG = None
+        
         self.DOT_ARR = []
 
     def _PXL(self, Y, X):
@@ -19,7 +34,7 @@ class Map:
         else:
             return False
 
-    def _MAP(self):
+    def _GEN(self):
         IMG = np.full((self.SIZ, self.SIZ), 255, dtype=np.uint8)
 
         IMG_TMP = IMG.astype(np.int32)
@@ -43,7 +58,7 @@ class Map:
                     DOT_ARR_Y = 0
                     DOR_ARR_X = 0
 
-        for I in range(MAG):
+        for I in range(_MAG):
             for Y in range(IMG_TMP.shape[0]):
                 for X in range(IMG_TMP.shape[1]):
                     PXL_NUM = 12 # number of pixels used to smooth
@@ -63,14 +78,31 @@ class Map:
                     IMG_TMP[Y, X] = (PXL_U2 + PXL_U1 + PXL_D2 + PXL_D1 + PXL_R2 + PXL_R1 + PXL_L2 + PXL_L1 + PXL_UR + PXL_DR + PXL_DL + PXL_UL) // PXL_NUM
 
         IMG = np.clip(IMG_TMP, 0, 255).astype(np.uint8)
+        
+        for Y in range(IMG.shape[0]):
+            for X in range(IMG.shape[1]):
+                IMG[Y, X] //= _ALT_DEC
+        
+        self.IMG = IMG
 
-        #cv2.imshow('IMG', IMG)
-        #cv2.waitKey(0)
-        #cv2.destroyAllWindows()
+        '''cv2.imshow('IMG', IMG)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()'''
 
         return IMG
+'''
+def _DBG_CHK(MAP, POS):
+    cv2.imshow('IMG', MAP.CHK_ARR[POS])
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    MAP = Map(SIZ=128)
-    MAP._MAP()
+    MAP = __MAP__()
+    MAP._CHK_ADD((0, 0))
+    MAP._CHK_ADD((-1, 0))
+    MAP._CHK_ADD((1, 0))
+    MAP._CHK_ADD((0, -1))
+    MAP._CHK_ADD((0, 1))
     
+    _DBG_CHK(MAP, (0, 0))
+'''
