@@ -82,78 +82,48 @@ class __CHK__:
                     
                     IMG_TMP[Y, X] = (PXL_U2 + PXL_U1 + PXL_D2 + PXL_D1 + PXL_R2 + PXL_R1 + PXL_L2 + PXL_L1 + PXL_UR + PXL_DR + PXL_DL + PXL_UL) // PXL_NUM
         
-        POS_ARR = [(Y - 1, X), (Y + 1, X), (Y, X - 1), (Y, X + 1)]
+        POS_Y, POS_X = self.POS
+        POS_ARR = [(POS_Y - 1, POS_X), (POS_Y + 1, POS_X), (POS_Y, POS_X - 1), (POS_Y, POS_X + 1)]
         POS_IDX = 0
+        
+        print(f'CUR: ({Y}, {X})')
+        print(_MAP.CHK_ARR.keys())
         
         for POS in POS_ARR:
             if POS in _MAP.CHK_ARR:
                 IMG_ALT = _MAP.CHK_ARR[POS]
                 
+                print(f'EDG @[{POS_IDX}]')
+                
                 # improve whatever this is
                 
                 if POS_IDX == 0:
-                    EDG = IMG_TMP[-WID_EDG:, :].copy
-                    EDG_ALT = IMG_ALT[:WID_EDG, :].copy
+                    EDG = IMG_TMP[-_WID_EDG:, :].copy
+                    EDG_ALT = IMG_ALT[:_WID_EDG, :].copy
                     
-                    # Create a stacked array (temporary combined region)
-                    combined = np.vstack((EDG_ALT, EDG))  # Stack EDG_ALT above EDG
+                    for Y in EDG.shape[0]:
+                        for X in EDG.shape[1]:
+                            EDG[Y, X] = 255#(EDG[Y, X] + EDG_ALT[Y, X]) // 2
                     
-                    # Apply Gaussian blur (only affects the temporary stacked image)
-                    blurred_combined = cv2.GaussianBlur(combined, (2, 2), 0)
-                    
-                    # Extract only the modified bottom part (blurred version of EDG)
-                    blurred_edg = blurred_combined[WID_EDG:, :]  # Get the blurred bottom half (EDG region)
-                    
-                    # Store back the modified edge into IMG_TMP
-                    IMG_TMP[-WID_EDG:, :] = blurred_edg
+                    IMG_TMP[-_WID_EDG:, :] = EDG
                 
                 elif POS_IDX == 1:
-                    EDG = IMG_TMP[:WID_EDG, :].copy
-                    EDG_ALT = IMG_ALT[-WID_EDG:, :].copy
+                    EDG = IMG_TMP[:_WID_EDG, :].copy
+                    EDG_ALT = IMG_ALT[-_WID_EDG:, :].copy
                     
-                    # Create a stacked array (temporary combined region)
-                    combined = np.vstack((EDG_ALT, EDG))  # Stack EDG_ALT above EDG
-                    
-                    # Apply Gaussian blur (only affects the temporary stacked image)
-                    blurred_combined = cv2.GaussianBlur(combined, (2, 2), 0)
-                    
-                    # Extract only the modified bottom part (blurred version of EDG)
-                    blurred_edg = blurred_combined[WID_EDG:, :]  # Get the blurred bottom half (EDG region)
-                    
-                    # Store back the modified edge into IMG_TMP
-                    IMG_TMP[-WID_EDG:, :] = blurred_edg
+                    IMG_TMP[-_WID_EDG:, :] = EDG
                 
                 elif POS_IDX == 2:
-                    EDG = IMG_TMP[:, :WID_EDG].copy
-                    EDG_ALT = IMG_ALT[:, -WID_EDG:].copy
+                    EDG = IMG_TMP[:, :_WID_EDG].copy
+                    EDG_ALT = IMG_ALT[:, -_WID_EDG:].copy
                     
-                    # Create a stacked array (temporary combined region)
-                    combined = np.vstack((EDG_ALT, EDG))  # Stack EDG_ALT above EDG
-                    
-                    # Apply Gaussian blur (only affects the temporary stacked image)
-                    blurred_combined = cv2.GaussianBlur(combined, (2, 2), 0)
-                    
-                    # Extract only the modified bottom part (blurred version of EDG)
-                    blurred_edg = blurred_combined[WID_EDG:, :]  # Get the blurred bottom half (EDG region)
-                    
-                    # Store back the modified edge into IMG_TMP
-                    IMG_TMP[-WID_EDG:, :] = blurred_edg
+                    IMG_TMP[-_WID_EDG:, :] = EDG
                 
                 else:
-                    EDG = IMG_TMP[:, -WID_EDG:].copy
-                    EDG_ALT = IMG_ALT[:, :WID_EDG].copy
+                    EDG = IMG_TMP[:, -_WID_EDG:].copy
+                    EDG_ALT = IMG_ALT[:, :_WID_EDG].copy
                     
-                    # Create a stacked array (temporary combined region)
-                    combined = np.vstack((EDG_ALT, EDG))  # Stack EDG_ALT above EDG
-                    
-                    # Apply Gaussian blur (only affects the temporary stacked image)
-                    blurred_combined = cv2.GaussianBlur(combined, (2, 2), 0)
-                    
-                    # Extract only the modified bottom part (blurred version of EDG)
-                    blurred_edg = blurred_combined[WID_EDG:, :]  # Get the blurred bottom half (EDG region)
-                    
-                    # Store back the modified edge into IMG_TMP
-                    IMG_TMP[-WID_EDG:, :] = blurred_edg
+                    IMG_TMP[-_WID_EDG:, :] = EDG
             
             POS_IDX += 1
         
@@ -162,6 +132,8 @@ class __CHK__:
         for Y in range(IMG.shape[0]):
             for X in range(IMG.shape[1]):
                 IMG[Y, X] //= _ALT_DEC
+        
+        IMG[0, 0] = 0
         
         self.IMG = IMG
         
