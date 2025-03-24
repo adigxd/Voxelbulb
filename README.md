@@ -1,7 +1,8 @@
 # rndyz
 
-### Voxel engine made from scratch with OpenGL
+Voxel engine made from scratch with OpenGL !
 
+### Features:
 - Noise-based terrain generation
 - Multithreaded chunk generation
 - Chunk caching
