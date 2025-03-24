@@ -6,9 +6,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+_SED = int(os.getenv('SED')) # random seed
 _SIZ = int(os.getenv('SIZ'))
 _MAG = int(os.getenv('MAG')) # number of times to soften noise
 _ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain
+
+random.seed(_SED)
 
 class __MAP__:
     def __init__(self):

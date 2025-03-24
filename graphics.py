@@ -1,5 +1,7 @@
 from map_1 import __MAP__
 
+import threading
+import queue
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
@@ -14,6 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 _TIC       = int(os.getenv('TIC'))
+_CHK_TIC   = int(os.getenv('CHK_TIC'))
 _FOV       = float(os.getenv('FOV'))
 _SEE_MIN   = float(os.getenv('SEE_MIN'))
 _SEE_MAX   = float(os.getenv('SEE_MAX'))
@@ -159,103 +162,6 @@ def draw_axes():
 
 
 
-def _DIS(POS_A, POS_B):
-    return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2)
-
-VAO_ARR = {}
-
-def _GEN_MAP(MAP, POS, SIZ=_SIZ):
-    GEN_V_ARR = []
-    GEN_IDX_ARR = []
-    
-    CHK_LOW_X = int(POS[0] - _CHK_DIS)
-    CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
-    CHK_LOW_Y = int(POS[1] - _CHK_DIS)
-    CHK_HIG_Y = int(POS[1] + _CHK_DIS + 1)
-    
-    REN_ARR = set()
-    
-    for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
-        for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
-            C_POS = (C_IDX_X, C_IDX_Y)
-            
-            if _DIS(POS, C_POS) <= _CHK_DIS:
-                REN_ARR.add(C_POS)
-            
-            REN_ARR.add(C_POS)
-    
-    for C_POS in REN_ARR:
-        if C_POS in VAO_ARR:
-            continue
-        
-        MAP._CHK_ADD(C_POS)
-        
-        CHK = MAP.CHK_ARR[C_POS]
-        
-        C_POS_X_Y = (_SIZ * C_POS[0], _SIZ * C_POS[1])
-        #print('> ', C_POS_X_Y)
-        
-        for Y in range(CHK.shape[0]):
-            for X in range(CHK.shape[1]):
-                for A in range(0, CHK[Y, X]):
-                    # edges of chk ; TODO: change this logic when infinite terrain gen (maybe ?)
-                    if (Y != 0 and Y != CHK.shape[0] - 1) and (X != 0 and X != CHK.shape[1] - 1):
-                        # altitude edges of map
-                        if A != 0 and A != CHK[Y, X] - 1:
-                            # skip if completely surrounded
-                            if A < CHK[Y - 1, X] and A < CHK[Y + 1, X] and A < CHK[Y, X - 1] and A < CHK[Y, X + 1]:
-                                continue
-                    
-                    #SIZ_FIX = _SIZ // 2 # not good for infinite terrain gen
-                    
-                    X_FIX = X + C_POS_X_Y[0] # - SIZ_FIX
-                    Y_FIX = Y + C_POS_X_Y[1] # - SIZ_FIX
-                    
-                    V_ARR = [
-                        (X_FIX    , A    , Y_FIX    ), # 0
-                        (X_FIX + 1, A    , Y_FIX    ), # 1
-                        (X_FIX + 1, A    , Y_FIX + 1), # 2
-                        (X_FIX    , A    , Y_FIX + 1), # 3
-                        (X_FIX    , A + 1, Y_FIX    ), # 4
-                        (X_FIX + 1, A + 1, Y_FIX    ), # 5
-                        (X_FIX + 1, A + 1, Y_FIX + 1), # 6
-                        (X_FIX    , A + 1, Y_FIX + 1)  # 7
-                    ]
-
-                    F_ARR = [
-                        (0, 1, 2), (0, 2, 3), # D
-                        (4, 5, 6), (4, 6, 7), # U
-                        (0, 1, 5), (0, 5, 4), # F
-                        (2, 3, 7), (2, 7, 6), # B
-                        (0, 3, 7), (0, 7, 4), # L
-                        (1, 2, 6), (1, 6, 5)  # R
-                    ]
-
-                    IDX = len(GEN_V_ARR)    # Get the current length of the vertex array
-                    GEN_V_ARR.extend(V_ARR) # Add the vertices for this cube
-                    GEN_IDX_ARR.extend([(V_A + IDX, V_B + IDX, V_C + IDX) for V_A, V_B, V_C in F_ARR])
-        
-        VAO, VBO, EBO = _BUF(np.array(GEN_V_ARR, dtype=np.float32), np.array(GEN_IDX_ARR, dtype=np.uint32))
-        VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
-        
-        GEN_V_ARR = []
-        GEN_IDX_ARR = []
-
-    #print(len(GEN_V_ARR), " -> ", len(GEN_IDX_ARR))
-    
-    REN_ARR_REM = set(VAO_ARR.keys()) - REN_ARR
-    #print('- ', REN_ARR_REM)
-    for C_POS in REN_ARR_REM:
-        VAO, _, VBO, EBO = VAO_ARR[C_POS]
-        glDeleteVertexArrays(1, [VAO])
-        glDeleteBuffers(1, [VBO])
-        glDeleteBuffers(1, [EBO])
-        del VAO_ARR[C_POS]
-    
-    return np.array(GEN_V_ARR, dtype=np.float32), np.array(GEN_IDX_ARR, dtype=np.uint32)
-
-
-
 def _SHA_GEN(PTH):
     try:
         with open(PTH, 'r') as F:
@@ -295,6 +201,7 @@ def _SHA_PRO(SHA_SRC_V, SHA_SRC_F):
         
         ERR = glGetProgramInfoLog(PRO_SHA).decode()
         print(f'ERR >> _SHA_PRO >> {ERR}')
+        
         return None
     
     glDeleteShader(SHA_V)
@@ -425,10 +332,137 @@ def _GEN_MAT_P(FOV, ASPECT, NEAR, FAR):
 
 
 
+def _DIS(POS_A, POS_B):
+    return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2)
+
+_REQ_QUE = queue.Queue()
+_RES_QUE = queue.Queue()
+_VAO_ARR = {}
+_THD_CNT = 12
+_THD_ARR = []
+_LCK_VAO_ARR = threading.Lock()
+
+def _THD_ARR_BEG():
+    for _ in range(_THD_CNT):
+        THD = threading.Thread(target=_THD_FUN)
+        THD.start()
+        _THD_ARR.append(THD)
+
+def _THD_ARR_END():
+    for _ in range(_THD_CNT): # sentinel value to stop thread
+        _REQ_QUE.put(None)
+    for THD in _THD_ARR:
+        THD.join()
+
+def _THD_FUN():
+    while True:
+        REQ = _REQ_QUE.get()
+        if REQ is None: # sentinel value to stop thread
+            break
+        CHK, C_POS, SIZ = REQ
+        if CHK is not None: # remove ?
+            GEN_V_ARR, GEN_IDX_ARR = _GEN_CHK_GEO(CHK, C_POS, SIZ)
+            _RES_QUE.put((C_POS, GEN_V_ARR, GEN_IDX_ARR))
+        _REQ_QUE.task_done()
+
+def _GEN_CHK_GEO(CHK, C_POS, SIZ):
+    GEN_V_ARR = []
+    GEN_IDX_ARR = []
+    
+    C_POS_ACT = (_SIZ * C_POS[0], _SIZ * C_POS[1])
+    
+    for Y in range(CHK.shape[0]):
+        for X in range(CHK.shape[1]):
+            for A in range(0, CHK[Y, X]):
+                # edges of chk ; TODO: change this logic when infinite terrain gen (maybe ?)
+                if (Y != 0 and Y != CHK.shape[0] - 1) and (X != 0 and X != CHK.shape[1] - 1):
+                    # altitude edges of map
+                    if A != 0 and A != CHK[Y, X] - 1:
+                        # skip if completely surrounded
+                        if A < CHK[Y - 1, X] and A < CHK[Y + 1, X] and A < CHK[Y, X - 1] and A < CHK[Y, X + 1]:
+                            continue
+                
+                #SIZ_FIX = _SIZ // 2 # not good for infinite terrain gen
+                
+                X_FIX = X + C_POS_ACT[0] # - SIZ_FIX
+                Y_FIX = Y + C_POS_ACT[1] # - SIZ_FIX
+                
+                V_ARR = [
+                    (X_FIX    , A    , Y_FIX    ), # 0
+                    (X_FIX + 1, A    , Y_FIX    ), # 1
+                    (X_FIX + 1, A    , Y_FIX + 1), # 2
+                    (X_FIX    , A    , Y_FIX + 1), # 3
+                    (X_FIX    , A + 1, Y_FIX    ), # 4
+                    (X_FIX + 1, A + 1, Y_FIX    ), # 5
+                    (X_FIX + 1, A + 1, Y_FIX + 1), # 6
+                    (X_FIX    , A + 1, Y_FIX + 1)  # 7
+                ]
+
+                F_ARR = [
+                    (0, 1, 2), (0, 2, 3), # D
+                    (4, 5, 6), (4, 6, 7), # U
+                    (0, 1, 5), (0, 5, 4), # F
+                    (2, 3, 7), (2, 7, 6), # B
+                    (0, 3, 7), (0, 7, 4), # L
+                    (1, 2, 6), (1, 6, 5)  # R
+                ]
+
+                IDX = len(GEN_V_ARR)    # Get the current length of the vertex array
+                GEN_V_ARR.extend(V_ARR) # Add the vertices for this cube
+                GEN_IDX_ARR.extend([(V_A + IDX, V_B + IDX, V_C + IDX) for V_A, V_B, V_C in F_ARR])
+    
+    return GEN_V_ARR, GEN_IDX_ARR
+
+def _GEN_MAP(MAP, POS, SIZ=_SIZ):
+    CHK_LOW_X = int(POS[0] - _CHK_DIS)
+    CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
+    CHK_LOW_Y = int(POS[1] - _CHK_DIS)
+    CHK_HIG_Y = int(POS[1] + _CHK_DIS + 1)
+    
+    REN_ARR = []
+    
+    for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
+        for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
+            C_POS = (C_IDX_X, C_IDX_Y)
+            
+            DIS = _DIS(POS, C_POS)
+            
+            if DIS <= _CHK_DIS:
+                REN_ARR.append((DIS, C_POS))
+    
+    REN_ARR.sort() # sorts by first item in tuple ; maybe also sort by chunks in front of camera: .sort(key=lambda C: (C[1], C[0]))
+    
+    for _, C_POS in REN_ARR:
+        if C_POS in _VAO_ARR:
+            continue
+        
+        MAP._CHK_ADD(C_POS)
+        
+        CHK = MAP.CHK_ARR[C_POS]
+        
+        _REQ_QUE.put((CHK, C_POS, SIZ))
+    
+    REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
+    ''' evil code ... this just caused old vaos that couldve stayed for old pos to have to be regened in future for those old pos
+    for C_POS in REN_SET_REM:
+        VAO, _, VBO, EBO = _VAO_ARR[C_POS]
+        
+        glDeleteVertexArrays(1, [VAO])
+        glDeleteBuffers(1, [VBO])
+        glDeleteBuffers(1, [EBO])
+        
+        with _LCK_VAO_ARR: # remove lock ?
+            del _VAO_ARR[C_POS]
+    '''
+
+
 def main():
     pygame.init()
     RES = (1024, 768)
     pygame.display.set_mode(RES, DOUBLEBUF | OPENGL)
+    pygame.display.set_caption('rndyz')
+    IMG_WIN = pygame.image.load('./IMG_WIN-rndyz.png')
+    pygame.display.set_icon(IMG_WIN)
 
     # Set up OpenGL
     glEnable(GL_DEPTH_TEST)
@@ -462,10 +496,13 @@ def main():
     glUseProgram(PRO_SHA)
 
 
+
+    CHK_TIC_MAX = _CHK_TIC
+    CHK_TIC_CNT = 0
     POS_PRE = (0, 0)
     MAP = __MAP__()
-    GEN_V_ARR, GEN_IDX_ARR = _GEN_MAP(MAP, (0, 0), SIZ=_SIZ)
-    #VAO = _BUF(GEN_V_ARR, GEN_IDX_ARR)
+    _THD_ARR_BEG()
+
 
 
     # Initialize matrices
@@ -480,6 +517,8 @@ def main():
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_RSHIFT):
+                _THD_ARR_END()
+                
                 glDeleteProgram(PRO_SHA)
 
                 pygame.quit()
@@ -487,13 +526,25 @@ def main():
                 return
         
         
+        
         POS_CAM = (camera.pos[0], camera.pos[2])
         POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ)
         
         if POS_PRE != POS:
             POS_PRE = POS
-            GEN_V_ARR, GEN_IDX_ARR = _GEN_MAP(MAP, POS_PRE, SIZ=_SIZ)
-            #VAO = _BUF(GEN_V_ARR, GEN_IDX_ARR)
+            _GEN_MAP(MAP, POS_PRE, SIZ=_SIZ)
+        
+        CHK_TIC_CNT = 0
+        
+        while not _RES_QUE.empty() and CHK_TIC_CNT < CHK_TIC_MAX:
+            C_POS, GEN_V_ARR, GEN_IDX_ARR = _RES_QUE.get()
+            VAO, VBO, EBO = _BUF(np.array(GEN_V_ARR, dtype=np.float32), np.array(GEN_IDX_ARR, dtype=np.uint32))
+            
+            with _LCK_VAO_ARR: # remove lock ?
+                _VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
+            
+            CHK_TIC_CNT += 1
+        
         
         
         # Get mouse movement
@@ -535,7 +586,9 @@ def main():
                 if _DIS(POS, C_POS) > _CHK_DIS:
                     continue
                 
-                _REN(*VAO_ARR[C_POS])
+                # instead of this, cache all old VAOS, access the needed ones by past POS 'experienced', else generate new
+                if C_POS in _VAO_ARR: # need ?
+                    _REN(*_VAO_ARR[C_POS])
 
 
         if _DBG_SEE != 0:
