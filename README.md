@@ -1,6 +1,11 @@
-# Graphics-3D-OpenGL
+# rndyz
 
-Voxel engine with noise-based terrain generation made from scratch with OpenGL
+### Voxel engine made from scratch with OpenGL
+
+- Noise-based terrain generation
+- Multithreaded chunk generation
+- Chunk caching
+- Custom shaders
 
 ### Shaders:
 
