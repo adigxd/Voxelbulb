@@ -8,7 +8,9 @@ load_dotenv()
 
 _SED = int(os.getenv('SED')) # random seed
 _SIZ = int(os.getenv('SIZ'))
-_MAG = int(os.getenv('MAG')) # number of times to soften noise
+_MAG = int(os.getenv('MAG')) # number of times to soften chunk's noise
+_MAG_EDG = int(os.getenv('MAG_EDG')) # number of times to soften against other chunk's edges
+_WID_EDG = np.clip(int(os.getenv('WID_EDG')), 1, _SIZ // 2) # how thick edges are considered to be
 _ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain
 
 random.seed(_SED)
@@ -16,7 +18,7 @@ random.seed(_SED)
 class __MAP__:
     def __init__(self):
         self.CHK_ARR = {}
-
+    
     def _CHK_ADD(self, POS):
         #print(f'adding {POS}')
         CHK = __CHK__(POS, _SIZ)
@@ -30,7 +32,7 @@ class __CHK__:
         self.IMG = None
         
         self.DOT_ARR = []
-
+    
     def _PXL(self, Y, X):
         if (0 <= Y < self.SIZ) and (0 <= X < self.SIZ):
             return True
@@ -39,12 +41,12 @@ class __CHK__:
 
     def _GEN(self):
         IMG = np.full((self.SIZ, self.SIZ), 255, dtype=np.uint8)
-
+        
         IMG_TMP = IMG.astype(np.int32)
-
+        
         DOT_ARR_Y = np.zeros((self.SIZ, self.SIZ), dtype=np.uint8)
         DOT_ARR_X = np.zeros((self.SIZ, self.SIZ), dtype=np.uint8)
-
+        
         for Y in range(IMG_TMP.shape[0]):
             for X in range(IMG_TMP.shape[1]):
                 if random.randint(0, 16) == 0:
@@ -77,9 +79,84 @@ class __CHK__:
                     PXL_DR = IMG_TMP[Y - 1, X + 1] if self._PXL(Y - 1, X + 1) else IMG_TMP[Y, X]
                     PXL_DL = IMG_TMP[Y - 1, X - 1] if self._PXL(Y - 1, X - 1) else IMG_TMP[Y, X]
                     PXL_UL = IMG_TMP[Y + 1, X - 1] if self._PXL(Y + 1, X - 1) else IMG_TMP[Y, X]
-
+                    
                     IMG_TMP[Y, X] = (PXL_U2 + PXL_U1 + PXL_D2 + PXL_D1 + PXL_R2 + PXL_R1 + PXL_L2 + PXL_L1 + PXL_UR + PXL_DR + PXL_DL + PXL_UL) // PXL_NUM
-
+        
+        POS_ARR = [(Y - 1, X), (Y + 1, X), (Y, X - 1), (Y, X + 1)]
+        POS_IDX = 0
+        
+        for POS in POS_ARR:
+            if POS in _MAP.CHK_ARR:
+                IMG_ALT = _MAP.CHK_ARR[POS]
+                
+                # improve whatever this is
+                
+                if POS_IDX == 0:
+                    EDG = IMG_TMP[-WID_EDG:, :].copy
+                    EDG_ALT = IMG_ALT[:WID_EDG, :].copy
+                    
+                    # Create a stacked array (temporary combined region)
+                    combined = np.vstack((EDG_ALT, EDG))  # Stack EDG_ALT above EDG
+                    
+                    # Apply Gaussian blur (only affects the temporary stacked image)
+                    blurred_combined = cv2.GaussianBlur(combined, (2, 2), 0)
+                    
+                    # Extract only the modified bottom part (blurred version of EDG)
+                    blurred_edg = blurred_combined[WID_EDG:, :]  # Get the blurred bottom half (EDG region)
+                    
+                    # Store back the modified edge into IMG_TMP
+                    IMG_TMP[-WID_EDG:, :] = blurred_edg
+                
+                elif POS_IDX == 1:
+                    EDG = IMG_TMP[:WID_EDG, :].copy
+                    EDG_ALT = IMG_ALT[-WID_EDG:, :].copy
+                    
+                    # Create a stacked array (temporary combined region)
+                    combined = np.vstack((EDG_ALT, EDG))  # Stack EDG_ALT above EDG
+                    
+                    # Apply Gaussian blur (only affects the temporary stacked image)
+                    blurred_combined = cv2.GaussianBlur(combined, (2, 2), 0)
+                    
+                    # Extract only the modified bottom part (blurred version of EDG)
+                    blurred_edg = blurred_combined[WID_EDG:, :]  # Get the blurred bottom half (EDG region)
+                    
+                    # Store back the modified edge into IMG_TMP
+                    IMG_TMP[-WID_EDG:, :] = blurred_edg
+                
+                elif POS_IDX == 2:
+                    EDG = IMG_TMP[:, :WID_EDG].copy
+                    EDG_ALT = IMG_ALT[:, -WID_EDG:].copy
+                    
+                    # Create a stacked array (temporary combined region)
+                    combined = np.vstack((EDG_ALT, EDG))  # Stack EDG_ALT above EDG
+                    
+                    # Apply Gaussian blur (only affects the temporary stacked image)
+                    blurred_combined = cv2.GaussianBlur(combined, (2, 2), 0)
+                    
+                    # Extract only the modified bottom part (blurred version of EDG)
+                    blurred_edg = blurred_combined[WID_EDG:, :]  # Get the blurred bottom half (EDG region)
+                    
+                    # Store back the modified edge into IMG_TMP
+                    IMG_TMP[-WID_EDG:, :] = blurred_edg
+                
+                else:
+                    EDG = IMG_TMP[:, -WID_EDG:].copy
+                    EDG_ALT = IMG_ALT[:, :WID_EDG].copy
+                    
+                    # Create a stacked array (temporary combined region)
+                    combined = np.vstack((EDG_ALT, EDG))  # Stack EDG_ALT above EDG
+                    
+                    # Apply Gaussian blur (only affects the temporary stacked image)
+                    blurred_combined = cv2.GaussianBlur(combined, (2, 2), 0)
+                    
+                    # Extract only the modified bottom part (blurred version of EDG)
+                    blurred_edg = blurred_combined[WID_EDG:, :]  # Get the blurred bottom half (EDG region)
+                    
+                    # Store back the modified edge into IMG_TMP
+                    IMG_TMP[-WID_EDG:, :] = blurred_edg
+            
+            POS_IDX += 1
+        
         IMG = np.clip(IMG_TMP, 0, 255).astype(np.uint8)
         
         for Y in range(IMG.shape[0]):
@@ -87,11 +164,11 @@ class __CHK__:
                 IMG[Y, X] //= _ALT_DEC
         
         self.IMG = IMG
-
+        
         '''cv2.imshow('IMG', IMG)
         cv2.waitKey(0)
         cv2.destroyAllWindows()'''
-
+        
         return IMG
 '''
 def _DBG_CHK(MAP, POS):
@@ -109,3 +186,5 @@ if __name__ == '__main__':
     
     _DBG_CHK(MAP, (0, 0))
 '''
+
+_MAP = __MAP__()

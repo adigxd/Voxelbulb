@@ -1,4 +1,4 @@
-from map_1 import __MAP__
+from map_1 import _MAP
 
 import threading
 import queue
@@ -14,6 +14,8 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+_THD_CNT   = int(os.getenv('THD_CNT'))
 
 _TIC       = int(os.getenv('TIC'))
 _CHK_TIC   = int(os.getenv('CHK_TIC'))
@@ -31,13 +33,15 @@ _COL_DEF   = tuple(map(float, os.getenv('COL_DEF').split(',')))
 _COL_MIN   = tuple(map(float, os.getenv('COL_MIN').split(',')))
 _COL_MAX   = tuple(map(float, os.getenv('COL_MAX').split(',')))
 _ALT_MIN   = float(os.getenv('ALT_MIN'))
-_ALT_MAX   = float(os.getenv('ALT_MAX'))
+#_ALT_MAX   = float(os.getenv('ALT_MAX')) use _ALT_DEC instead
 _CHK_DIS   = int(os.getenv('CHK_DIS'))
 
+_ALT_DEC   = int(os.getenv('ALT_DEC')) # just for init camera pos
+
 class Camera:
-    def __init__(self):
-        self.pos = [0, 0, 0]  # Moved camera back and up a bit
-        self.rot = [0, 0]  # pitch, yaw
+    def __init__(self, POS=[0, 0, 0], ROT=[0, 0]):
+        self.pos = POS # x, ALT, z
+        self.rot = ROT # pitch, yaw
         self.speed = _SPD
         self.sensitivity = _SEN
 
@@ -220,7 +224,7 @@ def _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P):
     glUniformMatrix4fv(LOC_V, 1, GL_TRUE, MAT_V)
     glUniformMatrix4fv(LOC_P, 1, GL_TRUE, MAT_P)
 
-def _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_MAX):
+def _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC):
     LOC_COL     = glGetUniformLocation(PRO_SHA, 'COL_DEF')
     LOC_COL_MIN = glGetUniformLocation(PRO_SHA, 'COL_MIN')
     LOC_COL_MAX = glGetUniformLocation(PRO_SHA, 'COL_MAX')
@@ -338,7 +342,6 @@ def _DIS(POS_A, POS_B):
 _REQ_QUE = queue.Queue()
 _RES_QUE = queue.Queue()
 _VAO_ARR = {}
-_THD_CNT = 12
 _THD_ARR = []
 _LCK_VAO_ARR = threading.Lock()
 
@@ -359,15 +362,21 @@ def _THD_FUN():
         REQ = _REQ_QUE.get()
         if REQ is None: # sentinel value to stop thread
             break
-        CHK, C_POS, SIZ = REQ
-        if CHK is not None: # remove ?
-            GEN_V_ARR, GEN_IDX_ARR = _GEN_CHK_GEO(CHK, C_POS, SIZ)
-            _RES_QUE.put((C_POS, GEN_V_ARR, GEN_IDX_ARR))
+        #CHK, C_POS, SIZ = REQ
+        #if CHK is not None: # remove ?
+        #    GEN_V_ARR, GEN_IDX_ARR = _GEN_CHK_GEO(CHK, C_POS, SIZ)
+        #    _RES_QUE.put((C_POS, GEN_V_ARR, GEN_IDX_ARR))
+        _MAP, C_POS, SIZ = REQ
+        GEN_V_ARR, GEN_IDX_ARR = _GEN_CHK_GEO(_MAP, C_POS, SIZ)
+        _RES_QUE.put((C_POS, GEN_V_ARR, GEN_IDX_ARR))
         _REQ_QUE.task_done()
 
-def _GEN_CHK_GEO(CHK, C_POS, SIZ):
+def _GEN_CHK_GEO(_MAP, C_POS, SIZ):
     GEN_V_ARR = []
     GEN_IDX_ARR = []
+    
+    _MAP._CHK_ADD(C_POS)
+    CHK = _MAP.CHK_ARR[C_POS]
     
     C_POS_ACT = (_SIZ * C_POS[0], _SIZ * C_POS[1])
     
@@ -413,7 +422,7 @@ def _GEN_CHK_GEO(CHK, C_POS, SIZ):
     
     return GEN_V_ARR, GEN_IDX_ARR
 
-def _GEN_MAP(MAP, POS, SIZ=_SIZ):
+def _GEN_MAP(_MAP, POS, SIZ=_SIZ):
     CHK_LOW_X = int(POS[0] - _CHK_DIS)
     CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
     CHK_LOW_Y = int(POS[1] - _CHK_DIS)
@@ -435,15 +444,14 @@ def _GEN_MAP(MAP, POS, SIZ=_SIZ):
     for _, C_POS in REN_ARR:
         if C_POS in _VAO_ARR:
             continue
-        
-        MAP._CHK_ADD(C_POS)
-        
-        CHK = MAP.CHK_ARR[C_POS]
-        
-        _REQ_QUE.put((CHK, C_POS, SIZ))
+        # send this code to threads ? #
+        #_MAP._CHK_ADD(C_POS)
+        #CHK = _MAP.CHK_ARR[C_POS]
+        ###############################
+        _REQ_QUE.put((_MAP, C_POS, SIZ))
     
-    REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
     ''' evil code ... this just caused old vaos that couldve stayed for old pos to have to be regened in future for those old pos
+    REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
     for C_POS in REN_SET_REM:
         VAO, _, VBO, EBO = _VAO_ARR[C_POS]
         
@@ -478,7 +486,7 @@ def main():
     glMatrixMode(GL_MODELVIEW)
 
     # Initialize camera and mouse
-    camera = Camera()
+    camera = Camera(POS=[0, _ALT_DEC, 0])
     pygame.mouse.set_visible(False)
     pygame.event.set_grab(True)
 
@@ -500,7 +508,6 @@ def main():
     CHK_TIC_MAX = _CHK_TIC
     CHK_TIC_CNT = 0
     POS_PRE = (0, 0)
-    MAP = __MAP__()
     _THD_ARR_BEG()
 
 
@@ -532,7 +539,7 @@ def main():
         
         if POS_PRE != POS:
             POS_PRE = POS
-            _GEN_MAP(MAP, POS_PRE, SIZ=_SIZ)
+            _GEN_MAP(_MAP, POS_PRE, SIZ=_SIZ)
         
         CHK_TIC_CNT = 0
         
@@ -561,7 +568,7 @@ def main():
 
         _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P)
 
-        _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_MAX)
+        _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC)
         
         # Apply camera transformation
         camera.look()
