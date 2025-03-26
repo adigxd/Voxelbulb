@@ -128,40 +128,26 @@ def _REN(VAO, CNT_IDX, VBO, EBO):
     glDrawElements(GL_TRIANGLES, CNT_IDX, GL_UNSIGNED_INT, None)
     glBindVertexArray(0)
 
-def draw_axes():
-    # Draw X-axis (Red)
-    glColor3f(1, 0, 0)
+def _REN_DBG():
+    # X
+    glColor3f(*_COL_DEF)
     glBegin(GL_LINES)
     glVertex3f(-128, 0, 0)
     glVertex3f(128, 0, 0)
     glEnd()
 
-    # Draw Y-axis (Green)
-    glColor3f(0, 1, 0)
+    # Y
+    glColor3f(*_COL_DEF)
     glBegin(GL_LINES)
     glVertex3f(0, -128, 0)
     glVertex3f(0, 128, 0)
     glEnd()
 
-    # Draw Z-axis (Blue)
-    glColor3f(0, 0, 1)
+    # Z
+    glColor3f(*_COL_DEF)
     glBegin(GL_LINES)
     glVertex3f(0, 0, -128)
     glVertex3f(0, 0, 128)
-    glEnd()
-
-    # Draw a grid for better orientation
-    LEN_MIN = -128
-    LEN_MAX = 128
-    glColor3f(0.5, 0.5, 0.5)  # Gray color
-    glBegin(GL_LINES)
-    for i in range(LEN_MIN, LEN_MAX, 1):
-        # Lines along X axis
-        glVertex3f(i, 0, LEN_MIN)
-        glVertex3f(i, 0, LEN_MAX)
-        # Lines along Z axis
-        glVertex3f(LEN_MIN, 0, i)
-        glVertex3f(LEN_MAX, 0, i)
     glEnd()
 
 
@@ -362,10 +348,7 @@ def _THD_FUN():
         REQ = _REQ_QUE.get()
         if REQ is None: # sentinel value to stop thread
             break
-        #CHK, C_POS, SIZ = REQ
-        #if CHK is not None: # remove ?
-        #    GEN_V_ARR, GEN_IDX_ARR = _GEN_CHK_GEO(CHK, C_POS, SIZ)
-        #    _RES_QUE.put((C_POS, GEN_V_ARR, GEN_IDX_ARR))
+        
         _MAP, C_POS, SIZ = REQ
         GEN_V_ARR, GEN_IDX_ARR = _GEN_CHK_GEO(_MAP, C_POS, SIZ)
         _RES_QUE.put((C_POS, GEN_V_ARR, GEN_IDX_ARR))
@@ -374,6 +357,8 @@ def _THD_FUN():
 def _GEN_CHK_GEO(_MAP, C_POS, SIZ):
     GEN_V_ARR = []
     GEN_IDX_ARR = []
+    
+    CHK = None
     
     _MAP._CHK_ADD(C_POS)
     CHK = _MAP.CHK_ARR[C_POS]
@@ -444,13 +429,10 @@ def _GEN_MAP(_MAP, POS, SIZ=_SIZ):
     for _, C_POS in REN_ARR:
         if C_POS in _VAO_ARR:
             continue
-        # send this code to threads ? #
-        #_MAP._CHK_ADD(C_POS)
-        #CHK = _MAP.CHK_ARR[C_POS]
-        ###############################
+        
         _REQ_QUE.put((_MAP, C_POS, SIZ))
     
-    ''' evil code ... this just caused old vaos that couldve stayed for old pos to have to be regened in future for those old pos
+    ''' maybe reuse something like this later for other purposes
     REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
     for C_POS in REN_SET_REM:
         VAO, _, VBO, EBO = _VAO_ARR[C_POS]
@@ -464,61 +446,62 @@ def _GEN_MAP(_MAP, POS, SIZ=_SIZ):
     '''
 
 
+
 def main():
     pygame.init()
-    RES = (1024, 768)
+    RES = (800, 600)
     pygame.display.set_mode(RES, DOUBLEBUF | OPENGL)
     pygame.display.set_caption('rndyz')
     IMG_WIN = pygame.image.load('./IMG_WIN-rndyz.png')
     pygame.display.set_icon(IMG_WIN)
-
+    
     # Set up OpenGL
     glEnable(GL_DEPTH_TEST)
     glDepthFunc(GL_LEQUAL)
     #glEnable(GL_CULL_FACE)
     #glCullFace(GL_BACK)
     glFrontFace(GL_CCW)
-    glClearColor(0.1, 0.1, 0.1, 1)  # Dark gray background
-
+    glClearColor(*(map(lambda x: 0.5 * x, _COL_MIN)), 1)
+    
     # Set up perspective
     glMatrixMode(GL_PROJECTION)
     gluPerspective(_FOV, (RES[0] / RES[1]), _SEE_MIN, _SEE_MAX)
     glMatrixMode(GL_MODELVIEW)
-
+    
     # Initialize camera and mouse
     camera = Camera(POS=[0, _ALT_DEC, 0])
     pygame.mouse.set_visible(False)
     pygame.event.set_grab(True)
-
+    
     SHA_SRC_V = _SHA_GEN(f'{_PTH_SHA_V}')
     SHA_SRC_F = _SHA_GEN(f'{_PTH_SHA_F}')
-
+    
     if SHA_SRC_V is None or SHA_SRC_F is None:
         exit()
-
+    
     PRO_SHA = _SHA_PRO(SHA_SRC_V, SHA_SRC_F)
     if PRO_SHA is None:
         # error message handled by shader program function
         exit()
-
+    
     glUseProgram(PRO_SHA)
-
-
-
+    
+    
+    
     CHK_TIC_MAX = _CHK_TIC
     CHK_TIC_CNT = 0
     POS_PRE = (0, 0)
     _THD_ARR_BEG()
-
-
-
+    
+    
+    
     # Initialize matrices
     RES_RAT = RES[0] / RES[1]
     MAT_P = _GEN_MAT_P(_FOV, RES_RAT, _SEE_MIN, _SEE_MAX)
     MAT_M = _GEN_MAT_M()  # Use defaults for initial position
-
+    
     glLineWidth(_LIN)
-
+    
     clock = pygame.time.Clock()
     
     while True:
@@ -542,7 +525,7 @@ def main():
             _GEN_MAP(_MAP, POS_PRE, SIZ=_SIZ)
         
         CHK_TIC_CNT = 0
-        
+        #print('0') # DEBUG
         while not _RES_QUE.empty() and CHK_TIC_CNT < CHK_TIC_MAX:
             C_POS, GEN_V_ARR, GEN_IDX_ARR = _RES_QUE.get()
             VAO, VBO, EBO = _BUF(np.array(GEN_V_ARR, dtype=np.float32), np.array(GEN_IDX_ARR, dtype=np.uint32))
@@ -551,7 +534,7 @@ def main():
                 _VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
             
             CHK_TIC_CNT += 1
-        
+        #print('1') # DEBUG
         
         
         # Get mouse movement
@@ -563,24 +546,23 @@ def main():
         
         # Clear screen and reset matrix
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
+        
         MAT_V = _GEN_MAT_V(camera.pos, camera.rot)
-
+        
         _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P)
-
+        
         _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC)
         
         # Apply camera transformation
         camera.look()
         
-        # Draw coordinate axes and grid
-        draw_axes()
-
+        _REN_DBG()
+        
         if _DBG_SEE != 0:
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-
-
-        #_REN(VAO, len(GEN_IDX_ARR))
+        
+        
+        #print('2') # DEBUG
         CHK_LOW_X = int(POS[0] - _CHK_DIS)
         CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
         CHK_LOW_Y = int(POS[1] - _CHK_DIS)
@@ -596,11 +578,12 @@ def main():
                 # instead of this, cache all old VAOS, access the needed ones by past POS 'experienced', else generate new
                 if C_POS in _VAO_ARR: # need ?
                     _REN(*_VAO_ARR[C_POS])
-
-
+        #print('3') # DEBUG
+        
+        
         if _DBG_SEE != 0:
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
-
+        
         pygame.display.flip()
         clock.tick(_TIC)
 
