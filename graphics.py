@@ -404,7 +404,8 @@ def _THD_ARR_END():
     for _ in range(_THD_CNT): # sentinel value to stop thread
         _REQ_QUE.put(None)
     for THD in _THD_ARR:
-        THD.join()
+        THD.terminate()
+        #THD.join()
     _REQ_QUE.close() # added
     _RES_QUE.close() # added
 
