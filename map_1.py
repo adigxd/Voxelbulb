@@ -83,7 +83,7 @@ class __CHK__:
                     
                     # this is why we needed a temporary image
                     IMG_TMP[Y, X] = (PXL_U2 + PXL_U1 + PXL_D2 + PXL_D1 + PXL_R2 + PXL_R1 + PXL_L2 + PXL_L1 + PXL_UR + PXL_DR + PXL_DL + PXL_UL) // PXL_NUM
-        
+        '''
         # this chunk's position
         POS_Y, POS_X = self.POS
         
@@ -188,9 +188,9 @@ class __CHK__:
             IMG_TMP_NEW //= BLR_CNT
         else:
             IMG_TMP_NEW = IMG_TMP
-        
+        '''
         # finalize
-        IMG = np.clip(IMG_TMP_NEW, 0, 255).astype(np.uint8)
+        IMG = np.clip(IMG_TMP, 0, 255).astype(np.uint8)
         
         for Y in range(IMG.shape[0]):
             for X in range(IMG.shape[1]):
