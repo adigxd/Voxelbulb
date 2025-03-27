@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 _THD_CNT   = np.clip(int(os.getenv('THD_CNT')), 1, os.cpu_count())
+print(f'[CFG] Using {_THD_CNT} threads !')
 _TIC       = int(os.getenv('TIC'))
 _CHK_TIC   = int(os.getenv('CHK_TIC'))
 _FOV       = float(os.getenv('FOV'))
