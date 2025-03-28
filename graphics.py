@@ -567,7 +567,8 @@ def main():
         
         JMP_YES = keys[pygame.K_SPACE]
         
-        KIN_ALT_MIN = _MAP.CHK_ARR[POS][POS_CAM[0] % _SIZ][POS_CAM[2] % _SIZ] if _MAP.CHK_ARR.get(POS) is not None else _ALT_DEC
+        #KIN_ALT_MIN = _MAP.CHK_ARR[POS][POS_CAM[0] % _SIZ][POS_CAM[2] % _SIZ] if _MAP.CHK_ARR.get(POS) is not None else _ALT_DEC
+        KIN_ALT_MIN = _ALT_DEC
         
         KIN._UPD(KIN_ALT_MIN, JMP_YES)
         
