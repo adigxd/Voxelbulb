@@ -36,7 +36,7 @@ _ALT_MIN   = float(os.getenv('ALT_MIN'))
 _CHK_DIS   = int(os.getenv('CHK_DIS'))
 _ALT_DEC   = int(os.getenv('ALT_DEC'))
 
-class Camera:
+class __CAM__:
     def __init__(self, POS=[0, 0, 0], ROT=[0, 0]):
         self.pos = POS # x, ALT, z
         self.rot = ROT # pitch, yaw
@@ -476,7 +476,7 @@ def main():
     glMatrixMode(GL_MODELVIEW)
     
     # Initialize camera and mouse
-    camera = Camera(POS=[0, 2 * _ALT_DEC, 0])
+    camera = __CAM__(POS=[0, 2 * _ALT_DEC, 0])
     pygame.mouse.set_visible(False)
     pygame.event.set_grab(True)
     
@@ -567,7 +567,7 @@ def main():
         
         JMP_YES = keys[pygame.K_SPACE]
         
-        KIN_ALT_MIN = 16
+        KIN_ALT_MIN = _MAP.CHK_ARR[POS][POS_CAM[0] % _SIZ][POS_CAM[2] % _SIZ] if _MAP.CHK_ARR.get(POS) is not None else _ALT_DEC
         
         KIN._UPD(KIN_ALT_MIN, JMP_YES)
         

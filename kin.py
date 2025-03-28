@@ -30,5 +30,5 @@ class __KIN__:
             self.VEL[2] = 0
         
         if self.POS[1] - self.OFF > self.ALT_MIN:
-            print(f'GRAVITY')
+            print('GRAVITY')
             self.VEL[2] += _ACC_D
