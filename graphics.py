@@ -1,4 +1,5 @@
 from map_1 import _MAP
+from kin import __KIN__
 
 from multiprocessing import Process, Queue
 import pygame
@@ -41,8 +42,8 @@ class Camera:
         self.rot = ROT # pitch, yaw
         self.speed = _SPD
         self.sensitivity = _SEN
-
-    def update(self, keys, mouse_rel):
+    
+    def update(self, keys, mouse_rel, KIN):
         # Mouse look
         self.rot[0] -= mouse_rel[1] * self.sensitivity  # pitch
         self.rot[1] += mouse_rel[0] * self.sensitivity  # yaw
@@ -75,11 +76,16 @@ class Camera:
             self.pos = [self.pos[i] - right[i] * self.speed for i in range(3)]
         if keys[pygame.K_d]:
             self.pos = [self.pos[i] + right[i] * self.speed for i in range(3)]
-        if keys[pygame.K_SPACE]:
-            self.pos[1] += self.speed
-        if keys[pygame.K_LSHIFT]:
-            self.pos[1] -= self.speed
-
+        #if keys[pygame.K_SPACE]:
+        #    self.pos[1] += self.speed
+        #if keys[pygame.K_LSHIFT]:
+        #    self.pos[1] -= self.speed
+        self.pos[1] += KIN.VEL[2]
+        if KIN.VEL[2] == 0:
+            self.pos[1] = KIN.ALT_MIN + KIN.OFF
+        KIN.POS = self.pos
+        print(KIN.VEL[2], KIN.POS)
+    
     def look(self):
         # Clear transformation matrix
         glLoadIdentity()
@@ -470,7 +476,7 @@ def main():
     glMatrixMode(GL_MODELVIEW)
     
     # Initialize camera and mouse
-    camera = Camera(POS=[0, _ALT_DEC, 0])
+    camera = Camera(POS=[0, 2 * _ALT_DEC, 0])
     pygame.mouse.set_visible(False)
     pygame.event.set_grab(True)
     
@@ -506,6 +512,12 @@ def main():
     
     CHK_TIC_MAX = _CHK_TIC
     POS_PRE = (None, None)
+    
+    
+    
+    KIN = __KIN__(2, (0, 2 * _ALT_DEC, 0))
+    
+    
     
     while True:
         for event in pygame.event.get():
@@ -551,8 +563,18 @@ def main():
         mouse_rel = pygame.mouse.get_rel()
         keys = pygame.key.get_pressed()
         
+        
+        
+        JMP_YES = keys[pygame.K_SPACE]
+        
+        KIN_ALT_MIN = 16
+        
+        KIN._UPD(KIN_ALT_MIN, JMP_YES)
+        
+        
+        
         # Update camera
-        camera.update(keys, mouse_rel)
+        camera.update(keys, mouse_rel, KIN)
         
         # Clear screen and reset matrix
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
