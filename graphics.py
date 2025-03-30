@@ -1,7 +1,7 @@
 from map_1 import _MAP
 from kin import __KIN__
 
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, freeze_support, set_start_method
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
@@ -624,4 +624,12 @@ def main():
         clock.tick(_TIC)
 
 if __name__ == '__main__':
+    freeze_support()
+    
+    try:
+        set_start_method('spawn', force=True)
+    
+    except RuntimeError as E:
+        pass
+    
     main()
