@@ -1,5 +1,9 @@
 # rndyz
 
+`pip install -r requirements.txt`
+
+`python graphics.py`
+
 Voxel engine made from scratch with OpenGL !
 
 ### Features:

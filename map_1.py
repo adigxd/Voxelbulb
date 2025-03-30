@@ -25,6 +25,9 @@ class __MAP__:
         CHK = __CHK__(POS, _SIZ)
         CHK._GEN()
         self.CHK_ARR[POS] = CHK.IMG
+    
+    def _CHK_ADD_MAN(self, POS, CHK_IMG): # manual chunk add
+        self.CHK_ARR[POS] = CHK_IMG
 
 class __CHK__:
     def __init__(self, POS, SIZ=16):

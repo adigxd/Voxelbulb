@@ -395,7 +395,7 @@ def _THD_FUN(REQ_QUE, RES_QUE):
         
         print(f"[THD] Generated chunk @ {C_POS} ; putting in queue")
         
-        RES_QUE.put((C_POS, GEN_VER_ARR, GEN_IDX_ARR))
+        RES_QUE.put((C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR))
         
         #REQ_QUE.task_done() # remove ?
         
@@ -545,7 +545,8 @@ def main():
         
         while not _RES_QUE.empty() and CHK_TIC_CNT < CHK_TIC_MAX:
             try:
-                C_POS, GEN_VER_ARR, GEN_IDX_ARR = _RES_QUE.get_nowait()
+                C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR = _RES_QUE.get_nowait()
+                _MAP._CHK_ADD_MAN(C_POS, CHK)
                 
                 T_A = time.perf_counter()
                 VAO, VBO, EBO = _BUF(GEN_VER_ARR, GEN_IDX_ARR)
@@ -567,8 +568,11 @@ def main():
         
         JMP_YES = keys[pygame.K_SPACE]
         
-        #KIN_ALT_MIN = _MAP.CHK_ARR[POS][POS_CAM[0] % _SIZ][POS_CAM[2] % _SIZ] if _MAP.CHK_ARR.get(POS) is not None else _ALT_DEC
-        KIN_ALT_MIN = _ALT_DEC
+        KIN_ALT_MIN = None
+        
+        if _MAP.CHK_ARR.get(POS) is not None: KIN_ALT_MIN = (_MAP.CHK_ARR[POS])[int(POS_CAM[1] % _SIZ), int(POS_CAM[0] % _SIZ)]
+        
+        else:                                 KIN_ALT_MIN = _ALT_DEC
         
         KIN._UPD(KIN_ALT_MIN, JMP_YES)
         
