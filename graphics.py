@@ -95,7 +95,7 @@ class __CAM__:
         if KIN.VEL[1] == 0 or self.pos[1] < KIN.ALT_MIN + KIN.OFF:
             self.pos[1] = KIN.ALT_MIN + KIN.OFF
         
-        print(KIN.ALT_MIN, KIN.VEL, self.pos)
+        #print(KIN.ALT_MIN, KIN.VEL, self.pos)
         
         KIN.POS = self.pos
     
