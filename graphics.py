@@ -67,15 +67,24 @@ class __CAM__:
             math.sin(yaw)
         ]
         
+        SPD_FIX = 1
+        
+        if (keys[pygame.K_w] and keys[pygame.K_a]) or \
+           (keys[pygame.K_w] and keys[pygame.K_d]) or \
+           (keys[pygame.K_s] and keys[pygame.K_a]) or \
+           (keys[pygame.K_s] and keys[pygame.K_d]):
+            SPD_FIX = 1 / math.sqrt(2)
+        
         # Movement
         if keys[pygame.K_w]:
-            self.pos = [self.pos[i] + forward[i] * self.speed for i in range(3)]
+            self.pos = [self.pos[i] + forward[i] * self.speed * SPD_FIX for i in range(3)]
         if keys[pygame.K_s]:
-            self.pos = [self.pos[i] - forward[i] * self.speed for i in range(3)]
+            self.pos = [self.pos[i] - forward[i] * self.speed * SPD_FIX for i in range(3)]
         if keys[pygame.K_a]:
-            self.pos = [self.pos[i] - right[i] * self.speed for i in range(3)]
+            self.pos = [self.pos[i] - right[i] * self.speed * SPD_FIX for i in range(3)]
         if keys[pygame.K_d]:
-            self.pos = [self.pos[i] + right[i] * self.speed for i in range(3)]
+            self.pos = [self.pos[i] + right[i] * self.speed * SPD_FIX for i in range(3)]
+        
         #if keys[pygame.K_SPACE]:
         #    self.pos[1] += self.speed
         #if keys[pygame.K_LSHIFT]:
@@ -83,8 +92,10 @@ class __CAM__:
         self.pos[1] += KIN.VEL[2]
         if KIN.VEL[2] == 0:
             self.pos[1] = KIN.ALT_MIN + KIN.OFF
+        
+        #print(self.pos)
+        
         KIN.POS = self.pos
-        print(KIN.VEL[2], KIN.POS)
     
     def look(self):
         # Clear transformation matrix
@@ -393,7 +404,7 @@ def _THD_FUN(REQ_QUE, RES_QUE):
         GEN_VER_ARR = np.array(GEN_VER_ARR, dtype=np.float32)
         GEN_IDX_ARR = np.array(GEN_IDX_ARR, dtype=np.uint32)
         
-        print(f"[THD] Generated chunk @ {C_POS} ; putting in queue")
+        #print(f"[THD] Generated chunk @ {C_POS} ; putting in queue")
         
         RES_QUE.put((C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR))
         
@@ -402,7 +413,7 @@ def _THD_FUN(REQ_QUE, RES_QUE):
         #time.sleep(0.01) # remove ?
 
 def _THD_ARR_BEG():
-    for _ in range(4):
+    for _ in range(_THD_CNT):
         THD = Process(target=_THD_FUN, args=(_REQ_QUE, _RES_QUE), daemon=True)
         THD.start()
         _THD_ARR.append(THD)
@@ -548,11 +559,11 @@ def main():
                 C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR = _RES_QUE.get_nowait()
                 _MAP._CHK_ADD_MAN(C_POS, CHK)
                 
-                T_A = time.perf_counter()
+                #T_A = time.perf_counter()
                 VAO, VBO, EBO = _BUF(GEN_VER_ARR, GEN_IDX_ARR)
                 _VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
-                T_B = time.perf_counter()
-                print(f'[MAI] {T_B - T_A:.8f} s')
+                #T_B = time.perf_counter()
+                #print(f'[MAI] {T_B - T_A:.8f} s')
                 
                 CHK_TIC_CNT += 1
             except Exception:
@@ -567,6 +578,7 @@ def main():
         
         
         JMP_YES = keys[pygame.K_SPACE]
+        GLD_YES = keys[pygame.K_LSHIFT]
         
         KIN_ALT_MIN = None
         
@@ -574,7 +586,7 @@ def main():
         
         else:                                 KIN_ALT_MIN = _ALT_DEC
         
-        KIN._UPD(KIN_ALT_MIN, JMP_YES)
+        KIN._UPD(int(KIN_ALT_MIN), JMP_YES, GLD_YES)
         
         
         

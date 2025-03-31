@@ -13,6 +13,7 @@ _MAG = int(os.getenv('MAG')) # number of times to soften chunk's noise
 _MAG_EDG = int(os.getenv('MAG_EDG')) # number of times to soften against other chunk's edges
 _WID_EDG = np.clip(int(os.getenv('WID_EDG')), 1, _SIZ // 2) # how thick edges are considered to be
 _ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain
+_MAG_0   = int(os.getenv('MAG_0')) # extra magnitude constant
 
 random.seed(_SED)
 np.random.seed(_SED)
@@ -59,7 +60,7 @@ class __CHK__:
         
         for Y in range(IMG_TMP.shape[0]):
             for X in range(IMG_TMP.shape[1]):
-                IMG_TMP[Y, X] = 6 * ( abs( Y - SIZ_FIX ) * abs( X - SIZ_FIX ) )
+                IMG_TMP[Y, X] = _MAG_0 * ( abs( Y - SIZ_FIX ) * abs( X - SIZ_FIX ) )
         
         '''
         # blur setup (place dark 'dots')
