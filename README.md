@@ -4,13 +4,19 @@
 
 `python graphics.py`
 
-Voxel engine made from scratch with OpenGL !
+Endless voxel based BHOP / KZ game (my attempt at a voxel engine made from scratch with OpenGL API)
 
 ### Features:
+
 - Noise-based terrain generation
 - Multithreaded chunk generation
 - Chunk caching
 - Custom shaders
+
+### Game Features:
+
+- BHOP
+- Glide (left shift)
 
 ### Shaders:
 
