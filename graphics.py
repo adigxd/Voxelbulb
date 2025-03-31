@@ -89,11 +89,13 @@ class __CAM__:
         #    self.pos[1] += self.speed
         #if keys[pygame.K_LSHIFT]:
         #    self.pos[1] -= self.speed
-        self.pos[1] += KIN.VEL[2]
-        if KIN.VEL[2] == 0:
+        
+        self.pos[1] += KIN.VEL[1]
+        
+        if KIN.VEL[1] == 0 or self.pos[1] < KIN.ALT_MIN + KIN.OFF:
             self.pos[1] = KIN.ALT_MIN + KIN.OFF
         
-        #print(self.pos)
+        print(KIN.ALT_MIN, KIN.VEL, self.pos)
         
         KIN.POS = self.pos
     
