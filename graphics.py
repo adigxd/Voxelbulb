@@ -36,6 +36,19 @@ _ALT_MIN   = float(os.getenv('ALT_MIN'))
 _CHK_DIS   = int(os.getenv('CHK_DIS'))
 _ALT_DEC   = int(os.getenv('ALT_DEC'))
 
+# BHOP logic #
+HIT_GROUND = True  # changes
+PRE_AIR_STRAFE = 0 # changes
+
+SPEED_MAX_MAG = 4
+SPEED_MAX = _SPD * SPEED_MAX_MAG
+
+SPEED_STRAFE_MAG = 0.002
+SPEED_INC_STRAFE = _SPD * SPEED_STRAFE_MAG
+SPEED_DEC_STRAFE = _SPD * SPEED_STRAFE_MAG
+SPEED_DEC_NOSTRAFE = _SPD * SPEED_STRAFE_MAG;
+##############
+
 class __CAM__:
     def __init__(self, POS=[0, 0, 0], ROT=[0, 0]):
         self.pos = POS # x, ALT, z
@@ -54,6 +67,62 @@ class __CAM__:
         # Calculate forward and right vectors
         yaw = math.radians(self.rot[1])
         pitch = math.radians(self.rot[0])
+        
+        
+        
+        # BHOP Logic #
+        X = 0  # Horizontal axis
+        Z = 0  # Vertical axis
+        if keys[pygame.K_a]: X -= 1
+        if keys[pygame.K_d]: X += 1
+        if keys[pygame.K_w]: Z += 1
+        if keys[pygame.K_s]: Z -= 1
+        
+        JMP_YES = keys[pygame.K_SPACE]
+        
+        global HIT_GROUND
+        global PRE_AIR_STRAFE
+        
+        GROUNDED = KIN.POS[1] - KIN.OFF == KIN.ALT_MIN
+        
+        if GROUNDED:
+            if JMP_YES:
+                PRE_AIR_STRAFE = 0
+            
+            HIT_GROUND = True
+
+        if (not GROUNDED and X != 0) and self.speed < SPEED_MAX:
+            if PRE_AIR_STRAFE != 0:
+                if (PRE_AIR_STRAFE > 0 and X > 0) or (PRE_AIR_STRAFE < 0 and X < 0):
+                    self.speed -= SPEED_DEC_STRAFE
+                    
+                    if self.speed < _SPD:
+                        self.speed = _SPD
+                
+                else:
+                    self.speed += SPEED_INC_STRAFE
+                    
+                    if self.speed > SPEED_MAX:
+                        self.speed = SPEED_MAX
+
+            if HIT_GROUND:
+                PRE_AIR_STRAFE = -1 if X < 0 else 1
+            
+            HIT_GROUND = False
+
+        if (GROUNDED or X == 0) and self.speed > _SPD:
+            self.speed -= SPEED_DEC_NOSTRAFE
+            
+            if self.speed < _SPD:
+                self.speed = _SPD
+
+        if X == 0 and Z == 0:
+            self.speed = _SPD
+        
+        #print(self.speed)
+        ##############
+        
+        
         
         forward = [
             math.sin(yaw),
