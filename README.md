@@ -4,7 +4,7 @@
 
 `python graphics.py`
 
-Endless voxel based BHOP / KZ game (my attempt at a voxel engine made from scratch with OpenGL API)
+Endless voxel-based BHOP / KZ game (my attempt at a voxel engine made from scratch with OpenGL API)
 
 ### Features:
 
