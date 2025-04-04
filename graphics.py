@@ -17,24 +17,28 @@ load_dotenv()
 
 _THD_CNT   = np.clip(int(os.getenv('THD_CNT')), 1, os.cpu_count())
 print(f'[CFG] Using {_THD_CNT} threads !')
-_TIC       = int(os.getenv('TIC'))
-_CHK_TIC   = int(os.getenv('CHK_TIC'))
-_FOV       = float(os.getenv('FOV'))
-_SEE_MIN   = float(os.getenv('SEE_MIN'))
-_SEE_MAX   = float(os.getenv('SEE_MAX'))
-_SPD       = float(os.getenv('SPD'))
-_SEN       = float(os.getenv('SEN'))
-_SIZ       = int(os.getenv('SIZ'))
-_LIN       = float(os.getenv('LIN'))
-_DBG_SEE   = int(os.getenv('DBG_SEE'))
-_PTH_SHA_V = os.getenv('PTH_SHA_V')
-_PTH_SHA_F = os.getenv('PTH_SHA_F')
-_COL_DEF   = tuple(map(float, os.getenv('COL_DEF').split(',')))
-_COL_MIN   = tuple(map(float, os.getenv('COL_MIN').split(',')))
-_COL_MAX   = tuple(map(float, os.getenv('COL_MAX').split(',')))
-_ALT_MIN   = float(os.getenv('ALT_MIN'))
-_CHK_DIS   = int(os.getenv('CHK_DIS'))
-_ALT_DEC   = int(os.getenv('ALT_DEC'))
+_TIC             = int(os.getenv('TIC'))
+_CHK_TIC         = int(os.getenv('CHK_TIC'))
+_FOV             = float(os.getenv('FOV'))
+_SEE_MIN         = float(os.getenv('SEE_MIN'))
+_SEE_MAX         = float(os.getenv('SEE_MAX'))
+_SPD             = float(os.getenv('SPD'))
+_SEN             = float(os.getenv('SEN'))
+_SIZ             = int(os.getenv('SIZ'))
+_LIN             = float(os.getenv('LIN'))
+_DBG_SEE         = int(os.getenv('DBG_SEE'))
+_PTH_SHA_V       = os.getenv('PTH_SHA_V')
+_PTH_SHA_F       = os.getenv('PTH_SHA_F')
+_PTH_SHA_V_PST   = os.getenv('PTH_SHA_V_PST')
+_PTH_SHA_F_PST_0 = os.getenv('PTH_SHA_F_PST_0')
+_COL__BG         = tuple(map(float, os.getenv('COL__BG').split(',')))
+_COL_DEF         = tuple(map(float, os.getenv('COL_DEF').split(',')))
+_COL_MIN         = tuple(map(float, os.getenv('COL_MIN').split(',')))
+_COL_MAX         = tuple(map(float, os.getenv('COL_MAX').split(',')))
+_ALT_MIN         = float(os.getenv('ALT_MIN'))
+_CHK_DIS         = int(os.getenv('CHK_DIS'))
+_ALT_DEC         = int(os.getenv('ALT_DEC'))
+_ALT_STA         = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
 
 # BHOP logic #
 HIT_GROUND = True  # changes
@@ -179,6 +183,47 @@ class __CAM__:
 
 
 
+def _BUF_PST(): # fullscreen quad
+    # Vertex positions and texture coordinates for a fullscreen quad
+    vertices = np.array([
+        # Positions (x, y, z)    # Texture coords (u, v)
+        -1.0, -1.0, 0.0,         0.0, 0.0,
+         1.0, -1.0, 0.0,         1.0, 0.0,
+         1.0,  1.0, 0.0,         1.0, 1.0,
+        -1.0,  1.0, 0.0,         0.0, 1.0
+    ], dtype=np.float32)
+    
+    indices = np.array([
+        0, 1, 2,  # First triangle
+        0, 2, 3   # Second triangle
+    ], dtype=np.uint32)
+    
+    # Create VAO and buffers
+    vao = glGenVertexArrays(1)
+    glBindVertexArray(vao)
+    
+    vbo = glGenBuffers(1)
+    glBindBuffer(GL_ARRAY_BUFFER, vbo)
+    glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
+    
+    ebo = glGenBuffers(1)
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL_STATIC_DRAW)
+    
+    # Position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * vertices.itemsize, None)
+    glEnableVertexAttribArray(0)
+    
+    # Texture coordinate attribute
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * vertices.itemsize, 
+                         ctypes.c_void_p(3 * vertices.itemsize))
+    glEnableVertexAttribArray(1)
+    
+    # Unbind VAO
+    glBindVertexArray(0)
+    
+    return vao, vbo, ebo
+
 def _BUF(vertex_data, index_data):
     # Convert data to numpy arrays
     vertex_data = np.array(vertex_data, dtype=np.float32)
@@ -287,6 +332,8 @@ def _SHA_PRO(SHA_SRC_V, SHA_SRC_F):
 
 
 def _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P):
+    glUseProgram(PRO_SHA)
+    
     LOC_M = glGetUniformLocation(PRO_SHA, 'model')
     LOC_V = glGetUniformLocation(PRO_SHA, 'view')
     LOC_P = glGetUniformLocation(PRO_SHA, 'projection')
@@ -296,6 +343,8 @@ def _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P):
     glUniformMatrix4fv(LOC_P, 1, GL_TRUE, MAT_P)
 
 def _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC):
+    glUseProgram(PRO_SHA)
+    
     LOC_COL     = glGetUniformLocation(PRO_SHA, 'COL_DEF')
     LOC_COL_MIN = glGetUniformLocation(PRO_SHA, 'COL_MIN')
     LOC_COL_MAX = glGetUniformLocation(PRO_SHA, 'COL_MAX')
@@ -550,7 +599,40 @@ def main():
     #glEnable(GL_CULL_FACE)
     #glCullFace(GL_BACK)
     glFrontFace(GL_CCW)
-    glClearColor(*(map(lambda x: 0.5 * x, _COL_MIN)), 1)
+    glClearColor(*_COL__BG, 1)
+    
+    
+    
+    # Setup framebuffer for post-processing
+    FBO = glGenFramebuffers(1)
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO)
+    
+    # Create texture to render to
+    TXT_REN = glGenTextures(1)
+    glBindTexture(GL_TEXTURE_2D, TXT_REN)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, RES[0], RES[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TXT_REN, 0)
+    
+    # Create renderbuffer for depth
+    DEP_REN_BUF = glGenRenderbuffers(1)
+    glBindRenderbuffer(GL_RENDERBUFFER, DEP_REN_BUF)
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, RES[0], RES[1])
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, DEP_REN_BUF)
+    
+    # Check if framebuffer is complete
+    if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
+        print("ERR >> GL_FRAMEBUFFER")
+        
+        pygame.quit()
+        
+        return
+    
+    # Unbind framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    
+    
     
     # Set up perspective
     glMatrixMode(GL_PROJECTION)
@@ -558,7 +640,7 @@ def main():
     glMatrixMode(GL_MODELVIEW)
     
     # Initialize camera and mouse
-    camera = __CAM__(POS=[0, 2 * _ALT_DEC, 0])
+    camera = __CAM__(POS=[0, _ALT_STA, 0])
     pygame.mouse.set_visible(False)
     pygame.event.set_grab(True)
     
@@ -566,12 +648,51 @@ def main():
     SHA_SRC_F = _SHA_GEN(f'{_PTH_SHA_F}')
     
     if SHA_SRC_V is None or SHA_SRC_F is None:
+        
+        pygame.quit()
+        
         exit()
     
     PRO_SHA = _SHA_PRO(SHA_SRC_V, SHA_SRC_F)
+    
     if PRO_SHA is None:
-        # error message handled by shader program function
+        
+        pygame.quit()
+        
+        exit() # error message handled by shader program function
+    
+    
+    
+    SHA_SRC_V_PST     = _SHA_GEN(f'{_PTH_SHA_V_PST}')
+    SHA_SRC_F_PST_ARR = {}
+    
+    SHA_SRC_F_PST_ARR['EDGE_DETECT'] = _SHA_GEN(f'{_PTH_SHA_F_PST_0}')
+    
+    if SHA_SRC_V is None:
+        
+        pygame.quit()
+        
         exit()
+    
+    if any(SHA_SRC_F_PST is None for SHA_SRC_F_PST in SHA_SRC_F_PST_ARR):
+        
+        pygame.quit()
+        
+        exit()
+    
+    PRO_SHA_PST_ARR = {}
+    
+    PRO_SHA_PST_ARR['EDGE_DETECT'] = _SHA_PRO(SHA_SRC_V_PST, SHA_SRC_F_PST_ARR['EDGE_DETECT'])
+    
+    if any(PRO_SHA_PST is None for PRO_SHA_PST in PRO_SHA_PST_ARR):
+        
+        pygame.quit()
+        
+        exit() # error message handled by shader program function
+    
+    PRO_SHA_PST_CUR = PRO_SHA_PST_ARR['EDGE_DETECT']
+    
+    VAO_PST, VBO_PST, EBO_PST = _BUF_PST() # post-processing buffers for fullscreen quad
     
     glUseProgram(PRO_SHA)
     
@@ -584,7 +705,7 @@ def main():
     # Initialize matrices
     RES_RAT = RES[0] / RES[1]
     MAT_P = _GEN_MAT_P(_FOV, RES_RAT, _SEE_MIN, _SEE_MAX)
-    MAT_M = _GEN_MAT_M()  # Use defaults for initial position
+    MAT_M = _GEN_MAT_M() # use defaults for initial position
     
     glLineWidth(_LIN)
     
@@ -597,7 +718,7 @@ def main():
     
     
     
-    KIN = __KIN__(2, (0, 2 * _ALT_DEC, 0))
+    KIN = __KIN__(2, (0, _ALT_STA, 0))
     
     
     
@@ -607,9 +728,22 @@ def main():
                 _THD_ARR_END()
                 
                 glDeleteProgram(PRO_SHA)
-
+                
+                for PRO_SHA_PST in PRO_SHA_PST_ARR.values():
+                    glDeleteProgram(PRO_SHA_PST)
+                
+                glDeleteFramebuffers(1, [FBO])
+                
+                glDeleteTextures(1, [TXT_REN])
+                
+                glDeleteRenderbuffers(1, [DEP_REN_BUF])
+                
+                glDeleteVertexArrays(1, [VAO_PST])
+                
+                glDeleteBuffers(1, [VBO_PST, EBO_PST])
+                
                 pygame.quit()
-
+                
                 return
         
         
@@ -646,8 +780,6 @@ def main():
         mouse_rel = pygame.mouse.get_rel()
         keys = pygame.key.get_pressed()
         
-        
-        
         JMP_YES = keys[pygame.K_SPACE]
         GLD_YES = keys[pygame.K_LSHIFT]
         
@@ -664,8 +796,15 @@ def main():
         # Update camera
         camera.update(keys, mouse_rel, KIN)
         
-        # Clear screen and reset matrix
+        
+        
+        # RENDER SCENE TO FRAME BUFFER
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        
+        
+        
+        glUseProgram(PRO_SHA)
         
         MAT_V = _GEN_MAT_V(camera.pos, camera.rot)
         
@@ -702,6 +841,38 @@ def main():
         
         if _DBG_SEE != 0:
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+        
+        
+        
+        # DONE RENDERING SCENE TO FRAME BUFFER
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        
+        if PRO_SHA_PST_CUR is not None:
+            glUseProgram(PRO_SHA_PST_CUR)
+            glActiveTexture(GL_TEXTURE0)
+            glBindTexture(GL_TEXTURE_2D, TXT_REN)
+            
+            LOC_TXT = glGetUniformLocation(PRO_SHA_PST_CUR, 'TXT')
+            glUniform1i(LOC_TXT, 0)
+            
+            LOC_RES = glGetUniformLocation(PRO_SHA_PST_CUR, 'RES')
+            glUniform2f(LOC_RES, RES[0], RES[1])
+            
+            glBindVertexArray(VAO_PST)
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
+            glBindVertexArray(0)
+            
+        else: # no post-processing
+            glUseProgram(0)
+            glEnable(GL_TEXTURE_2D)
+            glBindTexture(GL_TEXTURE_2D, TXT_REN)
+            
+            glBindVertexArray(VAO_PST)
+            
+            glDisable(GL_TEXTURE_2D)
+        
+        
         
         pygame.display.flip()
         clock.tick(_TIC)
