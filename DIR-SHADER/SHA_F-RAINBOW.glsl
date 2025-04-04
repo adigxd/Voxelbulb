@@ -43,5 +43,5 @@ void main()
 
     vec3 COL = mix(mix(COL_CYA, COL_PUR, Z_RAT), mix(COL_RED, COL_YEL, X_RAT), ALT_RAT);
 
-    FragColor = vec4(COL, 1.0); // Output color with full alpha
+    FragColor = vec4(COL, 1.0);
 }

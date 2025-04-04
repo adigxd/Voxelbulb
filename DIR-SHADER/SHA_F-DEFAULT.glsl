@@ -18,11 +18,5 @@ uniform float ALT_MAX;
 
 void main()
 {
-    float ALT_FIX = ALT; clamp(ALT, ALT_MIN, ALT_MAX);
-
-    float ALT_RAT = (ALT_FIX - ALT_MIN) / (ALT_MAX - ALT_MIN);
-
-    vec3 COL = mix(COL_MIN, COL_MAX, ALT_RAT);
-
-    FragColor = vec4(COL, 1.0);
+    FragColor = vec4(vec3(1.0), 1.0);
 }

@@ -31,7 +31,7 @@ _PTH_SHA_V       = os.getenv('PTH_SHA_V')
 _PTH_SHA_F       = os.getenv('PTH_SHA_F')
 _PTH_SHA_V_PST   = os.getenv('PTH_SHA_V_PST')
 _PTH_SHA_F_PST_0 = os.getenv('PTH_SHA_F_PST_0')
-_COL__BG         = tuple(map(float, os.getenv('COL__BG').split(',')))
+_COL_BG_         = tuple(map(float, os.getenv('COL_BG_').split(',')))
 _COL_DEF         = tuple(map(float, os.getenv('COL_DEF').split(',')))
 _COL_MIN         = tuple(map(float, os.getenv('COL_MIN').split(',')))
 _COL_MAX         = tuple(map(float, os.getenv('COL_MAX').split(',')))
@@ -599,7 +599,7 @@ def main():
     #glEnable(GL_CULL_FACE)
     #glCullFace(GL_BACK)
     glFrontFace(GL_CCW)
-    glClearColor(*_COL__BG, 1)
+    glClearColor(*_COL_BG_, 1)
     
     
     
