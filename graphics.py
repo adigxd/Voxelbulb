@@ -825,7 +825,7 @@ def main():
         # Apply camera transformation
         camera.look()
         
-        _REN_DBG()
+        #_REN_DBG() # axes
         
         if _DBG_SEE != 0:
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
