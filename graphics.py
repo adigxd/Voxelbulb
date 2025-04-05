@@ -31,6 +31,7 @@ _PTH_SHA_V       = os.getenv('PTH_SHA_V')
 _PTH_SHA_F       = os.getenv('PTH_SHA_F')
 _PTH_SHA_V_PST   = os.getenv('PTH_SHA_V_PST')
 _PTH_SHA_F_PST_0 = os.getenv('PTH_SHA_F_PST_0')
+_PTH_SHA_F_PST_1 = os.getenv('PTH_SHA_F_PST_1')
 _COL_BG_         = tuple(map(float, os.getenv('COL_BG_').split(',')))
 _COL_DEF         = tuple(map(float, os.getenv('COL_DEF').split(',')))
 _COL_MIN         = tuple(map(float, os.getenv('COL_MIN').split(',')))
@@ -667,6 +668,7 @@ def main():
     SHA_SRC_F_PST_ARR = {}
     
     SHA_SRC_F_PST_ARR['EDGE_DETECT'] = _SHA_GEN(f'{_PTH_SHA_F_PST_0}')
+    SHA_SRC_F_PST_ARR['DITHER']      = _SHA_GEN(f'{_PTH_SHA_F_PST_1}')
     
     if SHA_SRC_V is None:
         
@@ -683,6 +685,7 @@ def main():
     PRO_SHA_PST_ARR = {}
     
     PRO_SHA_PST_ARR['EDGE_DETECT'] = _SHA_PRO(SHA_SRC_V_PST, SHA_SRC_F_PST_ARR['EDGE_DETECT'])
+    PRO_SHA_PST_ARR['DITHER']      = _SHA_PRO(SHA_SRC_V_PST, SHA_SRC_F_PST_ARR['DITHER'])
     
     if any(PRO_SHA_PST is None for PRO_SHA_PST in PRO_SHA_PST_ARR):
         
@@ -690,7 +693,9 @@ def main():
         
         exit() # error message handled by shader program function
     
-    PRO_SHA_PST_CUR = PRO_SHA_PST_ARR['EDGE_DETECT']
+    PRO_SHA_PST_TYP_ARR     = ['EDGE_DETECT', 'DITHER']
+    PRO_SHA_PST_TYP_ARR_SIZ = 2
+    PRO_SHA_PST_TYP_IDX = 0
     
     VAO_PST, VBO_PST, EBO_PST = _BUF_PST() # post-processing buffers for fullscreen quad
     
@@ -723,8 +728,8 @@ def main():
     
     
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_RSHIFT):
+        for E in pygame.event.get():
+            if E.type == pygame.QUIT or (E.type == pygame.KEYDOWN and E.key == pygame.K_RSHIFT):
                 _THD_ARR_END()
                 
                 glDeleteProgram(PRO_SHA)
@@ -745,6 +750,11 @@ def main():
                 pygame.quit()
                 
                 return
+            
+            if E.type == pygame.KEYDOWN and E.key == pygame.K_BACKSLASH:
+                PRO_SHA_PST_TYP_IDX += 1
+                
+                if PRO_SHA_PST_TYP_IDX >= PRO_SHA_PST_TYP_ARR_SIZ: PRO_SHA_PST_TYP_IDX = 0
         
         
         
@@ -847,6 +857,8 @@ def main():
         # DONE RENDERING SCENE TO FRAME BUFFER
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        
+        PRO_SHA_PST_CUR = PRO_SHA_PST_ARR[PRO_SHA_PST_TYP_ARR[PRO_SHA_PST_TYP_IDX]]
         
         if PRO_SHA_PST_CUR is not None:
             glUseProgram(PRO_SHA_PST_CUR)
