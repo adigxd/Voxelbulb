@@ -30,6 +30,7 @@ _DBG_SEE         = int(os.getenv('DBG_SEE'))
 _PTH_SHA_V       = os.getenv('PTH_SHA_V')
 _PTH_SHA_F       = os.getenv('PTH_SHA_F')
 _PTH_SHA_V_PST   = os.getenv('PTH_SHA_V_PST')
+_PTH_SHA_F_PST_X = os.getenv('PTH_SHA_F_PST_X')
 _PTH_SHA_F_PST_0 = os.getenv('PTH_SHA_F_PST_0')
 _PTH_SHA_F_PST_1 = os.getenv('PTH_SHA_F_PST_1')
 _COL_BG_         = tuple(map(float, os.getenv('COL_BG_').split(',')))
@@ -667,6 +668,7 @@ def main():
     SHA_SRC_V_PST     = _SHA_GEN(f'{_PTH_SHA_V_PST}')
     SHA_SRC_F_PST_ARR = {}
     
+    SHA_SRC_F_PST_ARR['DEFAULT'] = _SHA_GEN(f'{_PTH_SHA_F_PST_X}')
     SHA_SRC_F_PST_ARR['EDGE_DETECT'] = _SHA_GEN(f'{_PTH_SHA_F_PST_0}')
     SHA_SRC_F_PST_ARR['DITHER']      = _SHA_GEN(f'{_PTH_SHA_F_PST_1}')
     
@@ -684,6 +686,7 @@ def main():
     
     PRO_SHA_PST_ARR = {}
     
+    PRO_SHA_PST_ARR['DEFAULT']     = _SHA_PRO(SHA_SRC_V_PST, SHA_SRC_F_PST_ARR['DEFAULT'])
     PRO_SHA_PST_ARR['EDGE_DETECT'] = _SHA_PRO(SHA_SRC_V_PST, SHA_SRC_F_PST_ARR['EDGE_DETECT'])
     PRO_SHA_PST_ARR['DITHER']      = _SHA_PRO(SHA_SRC_V_PST, SHA_SRC_F_PST_ARR['DITHER'])
     
@@ -693,8 +696,8 @@ def main():
         
         exit() # error message handled by shader program function
     
-    PRO_SHA_PST_TYP_ARR     = ['EDGE_DETECT', 'DITHER']
-    PRO_SHA_PST_TYP_ARR_SIZ = 2
+    PRO_SHA_PST_TYP_ARR     = list(PRO_SHA_PST_ARR.keys())
+    PRO_SHA_PST_TYP_ARR_SIZ = len(PRO_SHA_PST_TYP_ARR)
     PRO_SHA_PST_TYP_IDX = 0
     
     VAO_PST, VBO_PST, EBO_PST = _BUF_PST() # post-processing buffers for fullscreen quad
