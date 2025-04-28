@@ -538,7 +538,7 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         
         #REQ_QUE.task_done() # remove ?
         
-        #time.sleep(0.01) # remove ?
+        time.sleep(0.01) # keep to stop super fast checking when queue is potentially empty
 
 def _THD_ARR_BEG(CAM_POS):
     for _ in range(_THD_CNT):
@@ -547,11 +547,19 @@ def _THD_ARR_BEG(CAM_POS):
         _THD_ARR.append(THD)
 
 def _THD_ARR_END():
-    for _ in range(_THD_CNT): # sentinel value to stop thread
+    while not _REQ_QUE.empty():
+        try:
+            _REQ_QUE.get_nowait()
+        except Exception:
+            pass
+    
+    for _ in range(_THD_CNT): # sentinel value to stop thread; keep I guess ... even though it works without it
         _REQ_QUE.put(None)
+    
     for THD in _THD_ARR:
         THD.terminate()
         #THD.join()
+    
     _REQ_QUE.close() # added
     _RES_QUE.close() # added
 
