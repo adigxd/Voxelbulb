@@ -17,7 +17,7 @@ _MAG_0   = int(os.getenv('MAG_0')) # extra magnitude constant
 
 _FRC_MAG = int(os.getenv('FRC_MAG')) # magnitude to more clearly render the fractal by making coordinates smaller (preferably < 2)
 _FRC_LOP_MAX = int(os.getenv('FRC_LOP_MAX')) # how many iterations to check if the function escapes 2
-_FRC_POW = int(os.getenv('FRC_POW')) # power for fractal function exponent
+_FRC_POW = float(os.getenv('FRC_POW')) # power for fractal function exponent
 
 random.seed(_SED)
 np.random.seed(_SED)
