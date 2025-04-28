@@ -33,7 +33,7 @@ _PTH_SHA_V_PST   = os.getenv('PTH_SHA_V_PST')
 _PTH_SHA_F_PST_X = os.getenv('PTH_SHA_F_PST_X')
 _PTH_SHA_F_PST_0 = os.getenv('PTH_SHA_F_PST_0')
 _PTH_SHA_F_PST_1 = os.getenv('PTH_SHA_F_PST_1')
-_COL_BG_         = tuple(map(float, os.getenv('COL_BG_').split(',')))
+_COL_BKG         = tuple(map(float, os.getenv('COL_BKG').split(',')))
 _COL_DEF         = tuple(map(float, os.getenv('COL_DEF').split(',')))
 _COL_MIN         = tuple(map(float, os.getenv('COL_MIN').split(',')))
 _COL_MAX         = tuple(map(float, os.getenv('COL_MAX').split(',')))
@@ -41,6 +41,11 @@ _ALT_MIN         = float(os.getenv('ALT_MIN'))
 _CHK_DIS         = int(os.getenv('CHK_DIS'))
 _ALT_DEC         = int(os.getenv('ALT_DEC'))
 _ALT_STA         = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
+
+_DIR_SSM         = './DIR-Screenshots'
+
+if not os.path.exists(_DIR_SSM):
+    os.makedirs(_DIR_SSM)
 
 # BHOP logic #
 HIT_GROUND = True  # changes
@@ -475,11 +480,18 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         
         C_POS, SIZ = REQ
         
+        
+        '''
         CAM_C_POS = (CAM_POS['X'] // _SIZ, CAM_POS['Z'] // _SIZ)
         DIS = _DIS(CAM_C_POS, C_POS)
         
         if DIS > _CHK_DIS: # if outside render distance, skip !
+            print('OOR  : ', DIS, _CHK_DIS)
+            print('cur  : ', CAM_C_POS)
+            print('skip : ', C_POS)
             continue
+        '''
+        
         
         _MAP._CHK_ADD(C_POS)
         CHK = _MAP.CHK_ARR[C_POS]
@@ -620,11 +632,11 @@ def main():
     #glEnable(GL_CULL_FACE)
     #glCullFace(GL_BACK)
     glFrontFace(GL_CCW)
-    glClearColor(*_COL_BG_, 1)
+    glClearColor(*_COL_BKG, 1)
     
     
     
-    # Setup framebuffer for post-processing
+    # Setup frame buffer for post-processing
     FBO = glGenFramebuffers(1)
     glBindFramebuffer(GL_FRAMEBUFFER, FBO)
     
@@ -636,13 +648,13 @@ def main():
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TXT_REN, 0)
     
-    # Create renderbuffer for depth
+    # Create render buffer for depth
     DEP_REN_BUF = glGenRenderbuffers(1)
     glBindRenderbuffer(GL_RENDERBUFFER, DEP_REN_BUF)
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, RES[0], RES[1])
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, DEP_REN_BUF)
     
-    # Check if framebuffer is complete
+    # Check if frame buffer is complete
     if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
         print("ERR >> GL_FRAMEBUFFER")
         
@@ -650,7 +662,7 @@ def main():
         
         return
     
-    # Unbind framebuffer
+    # Unbind frame buffer
     glBindFramebuffer(GL_FRAMEBUFFER, 0)
     
     
@@ -777,6 +789,27 @@ def main():
                 PRO_SHA_PST_TYP_IDX += 1
                 
                 if PRO_SHA_PST_TYP_IDX >= PRO_SHA_PST_TYP_ARR_SIZ: PRO_SHA_PST_TYP_IDX = 0
+            
+            if E.type == pygame.KEYDOWN and E.key == pygame.K_BACKQUOTE:
+                # to it like this to ensure post-processing effects in frame buffer are captured
+                
+                # ensures that all rendering commands, such as rendering the scene to the FBO, 
+                # applying post-processing shaders, and drawing to the default framebuffer, 
+                # are fully executed before you read the pixel data with glReadPixels()
+                
+                glFinish()
+                
+                PXL_DAT = glReadPixels(0, 0, RES[0], RES[1], GL_RGBA, GL_UNSIGNED_BYTE) # pixel data
+                
+                SUR = pygame.image.frombuffer(PXL_DAT, (RES[0], RES[1]), 'RGBA') # surface for image
+                
+                SUR = pygame.transform.flip(SUR, False, True) # for OpenGL's coordinate system
+                
+                PTH_SSM = os.path.join(_DIR_SSM, f'{int(time.time())}.png')
+                
+                pygame.image.save(SUR, PTH_SSM)
+                
+                print(f'[SSM] Saved to {PTH_SSM}')
         
         
         
@@ -829,8 +862,8 @@ def main():
         camera.update(keys, mouse_rel, KIN)
         
         # so everything can know where the player currently is
-        CAM_POS['X'] = camera.pos[0]
-        CAM_POS['Z'] = camera.pos[2]
+        # CAM_POS['X'] = camera.pos[0]
+        # CAM_POS['Z'] = camera.pos[2]
         
         
         
