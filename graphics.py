@@ -1,7 +1,7 @@
-from map_1 import _MAP
+from map_fun import _MAP
 from kin import __KIN__
 
-from multiprocessing import Process, Queue, freeze_support, set_start_method
+from multiprocessing import Process, Queue, Manager, freeze_support, set_start_method
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
@@ -466,7 +466,7 @@ _RES_QUE = Queue()
 _THD_ARR = []
 _VAO_ARR = {}
 
-def _THD_FUN(REQ_QUE, RES_QUE):
+def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
     while True:
         REQ = REQ_QUE.get()
         
@@ -474,6 +474,12 @@ def _THD_FUN(REQ_QUE, RES_QUE):
             break
         
         C_POS, SIZ = REQ
+        
+        CAM_C_POS = (CAM_POS['X'] // _SIZ, CAM_POS['Z'] // _SIZ)
+        DIS = _DIS(CAM_C_POS, C_POS)
+        
+        if DIS > _CHK_DIS: # if outside render distance, skip !
+            continue
         
         _MAP._CHK_ADD(C_POS)
         CHK = _MAP.CHK_ARR[C_POS]
@@ -534,9 +540,9 @@ def _THD_FUN(REQ_QUE, RES_QUE):
         
         #time.sleep(0.01) # remove ?
 
-def _THD_ARR_BEG():
+def _THD_ARR_BEG(CAM_POS):
     for _ in range(_THD_CNT):
-        THD = Process(target=_THD_FUN, args=(_REQ_QUE, _RES_QUE), daemon=True)
+        THD = Process(target=_THD_FUN, args=(CAM_POS, _REQ_QUE, _RES_QUE), daemon=True)
         THD.start()
         _THD_ARR.append(THD)
 
@@ -588,6 +594,11 @@ def _GEN_MAP(POS, SIZ=_SIZ):
 
 
 def main():
+    MGR = Manager() # has to be initialized in main
+    CAM_POS = MGR.dict()
+    CAM_POS['X'] = 0
+    CAM_POS['Z'] = 0
+    
     pygame.init()
     RES = (800, 600)
     pygame.display.set_mode(RES, DOUBLEBUF | OPENGL)
@@ -706,7 +717,7 @@ def main():
     
     
     
-    _THD_ARR_BEG()
+    _THD_ARR_BEG(CAM_POS)
     
     
     
@@ -808,6 +819,10 @@ def main():
         
         # Update camera
         camera.update(keys, mouse_rel, KIN)
+        
+        # so everything can know where the player currently is
+        CAM_POS['X'] = camera.pos[0]
+        CAM_POS['Z'] = camera.pos[2]
         
         
         

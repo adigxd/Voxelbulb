@@ -15,6 +15,10 @@ _WID_EDG = np.clip(int(os.getenv('WID_EDG')), 1, _SIZ // 2) # how thick edges ar
 _ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain (MAXIMUM ALTITUDE)
 _MAG_0   = int(os.getenv('MAG_0')) # extra magnitude constant
 
+_FRC_MAG = int(os.getenv('FRC_MAG')) # magnitude to more clearly render the fractal by making coordinates smaller (preferably < 2)
+_FRC_LOP_MAX = int(os.getenv('FRC_LOP_MAX')) # how many iterations to check if the function escapes 2
+_FRC_POW = int(os.getenv('FRC_POW')) # power for fractal function exponent
+
 random.seed(_SED)
 np.random.seed(_SED)
 
@@ -52,15 +56,38 @@ class __CHK__:
     def _GEN_0(self, IMG_PRE):
         # temp image as processing may cause pixels' values to go over 255
         IMG = IMG_PRE.astype(np.int32)
-
+        
         SIZ_FIX = self.SIZ - ( self.SIZ / 2 )
-
+        
         for Y in range(IMG.shape[0]):
             for X in range(IMG.shape[1]):
-                IMG[Y, X] = _MAG_0 * ( abs( Y - SIZ_FIX ) * abs( X - SIZ_FIX ) )
-
+                Y_FIX = ( ( self.SIZ * self.POS[1] ) + Y ) / _FRC_MAG
+                X_FIX = ( ( self.SIZ * self.POS[0] ) + X ) / _FRC_MAG
+                
+                FRC_Z = complex(0, 0)         # needed
+                FRC_C = complex(X_FIX, Y_FIX) # REAL + IMAGINARY
+                
+                FRC_ESC_YES = False
+                FRC_LOP_CNT = 0
+                
+                for I in range(_FRC_LOP_MAX):
+                    FRC_Z = pow(FRC_Z, _FRC_POW) + FRC_C
+                    
+                    if abs(FRC_Z) > 2:
+                        FRC_ESC_YES = True
+                        FRC_LOP_CNT = I
+                        
+                        break
+                
+                ALT = 255
+                
+                if FRC_ESC_YES:
+                    ALT = ( FRC_LOP_CNT / _FRC_LOP_MAX ) * 255
+                
+                IMG[Y, X] = ALT
+        
         return np.clip(IMG, 0, 255).astype(np.uint8)
-
+    
     # create a chunk
     def _GEN(self):
         # start with blank white
