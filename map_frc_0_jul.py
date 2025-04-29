@@ -19,6 +19,10 @@ _FRC_MAG = int(os.getenv('FRC_MAG')) # magnitude to more clearly render the frac
 _FRC_LOP_MAX = int(os.getenv('FRC_LOP_MAX')) # how many iterations to check if the function escapes 2
 _FRC_POW = float(os.getenv('FRC_POW')) # power for fractal function exponent
 
+_FRC_JUL_Z_MOD = int(os.getenv('FRC_JUL_Z_MOD')) # how to convert position coordinates to an initial Z value
+_FRC_JUL_C_R = float(os.getenv('FRC_JUL_C_R')) # constant real value portion for C
+_FRC_JUL_C_I = float(os.getenv('FRC_JUL_C_I')) # constant imaginary value portion for C
+
 random.seed(_SED)
 np.random.seed(_SED)
 
@@ -65,7 +69,17 @@ class __CHK__:
                 X_FIX = ( ( self.SIZ * self.POS[0] ) + X ) / _FRC_MAG
                 
                 FRC_Z = complex(0, 0)         # needed
-                FRC_C = complex(X_FIX, Y_FIX) # REAL + IMAGINARY
+                
+                if _FRC_JUL_Z_MOD == 0:
+                    FRC_Z = complex(Y_FIX, X_FIX)
+                
+                if _FRC_JUL_Z_MOD == 1:
+                    FRC_Z = complex(Y_FIX * X_FIX, 0)
+                
+                if _FRC_JUL_Z_MOD == 2:
+                    FRC_Z = complex(0, Y_FIX * X_FIX)
+                
+                FRC_C = complex(_FRC_JUL_C_R, _FRC_JUL_C_I) # REAL + IMAGINARY
                 
                 FRC_ESC_YES = False
                 FRC_LOP_CNT = 0

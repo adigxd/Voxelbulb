@@ -1,4 +1,4 @@
-from map_fun import _MAP
+from map_frc_0_jul import _MAP
 from kin import __KIN__
 
 from multiprocessing import Process, Queue, Manager, freeze_support, set_start_method
