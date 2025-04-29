@@ -40,7 +40,9 @@ _COL_MAX         = tuple(map(float, os.getenv('COL_MAX').split(',')))
 _ALT_MIN         = float(os.getenv('ALT_MIN'))
 _CHK_DIS         = int(os.getenv('CHK_DIS'))
 _ALT_DEC         = int(os.getenv('ALT_DEC'))
+_ALT_FIL         = int(os.getenv('ALT_FIL'))
 _ALT_STA         = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
+_DBG_KIN         = int(os.getenv('DBG_KIN'))
 
 _DIR_SSM         = './DIR-Screenshots'
 
@@ -81,57 +83,58 @@ class __CAM__:
         
         
         
-        # BHOP Logic #
-        X = 0  # Horizontal axis
-        Z = 0  # Vertical axis
-        if keys[pygame.K_a]: X -= 1
-        if keys[pygame.K_d]: X += 1
-        if keys[pygame.K_w]: Z += 1
-        if keys[pygame.K_s]: Z -= 1
-        
-        JMP_YES = keys[pygame.K_SPACE]
-        
-        global HIT_GROUND
-        global PRE_AIR_STRAFE
-        
-        GROUNDED = KIN.POS[1] - KIN.OFF == KIN.ALT_MIN
-        
-        if GROUNDED:
-            if JMP_YES:
-                PRE_AIR_STRAFE = 0
+        if _DBG_KIN == 0:
+            # BHOP Logic #
+            X = 0  # Horizontal axis
+            Z = 0  # Vertical axis
+            if keys[pygame.K_a]: X -= 1
+            if keys[pygame.K_d]: X += 1
+            if keys[pygame.K_w]: Z += 1
+            if keys[pygame.K_s]: Z -= 1
             
-            HIT_GROUND = True
-
-        if (not GROUNDED and X != 0) and self.speed < SPEED_MAX:
-            if PRE_AIR_STRAFE != 0:
-                if (PRE_AIR_STRAFE > 0 and X > 0) or (PRE_AIR_STRAFE < 0 and X < 0):
-                    self.speed -= SPEED_DEC_STRAFE
-                    
-                    if self.speed < _SPD:
-                        self.speed = _SPD
+            JMP_YES = keys[pygame.K_SPACE]
+            
+            global HIT_GROUND
+            global PRE_AIR_STRAFE
+            
+            GROUNDED = KIN.POS[1] - KIN.OFF == KIN.ALT_MIN
+            
+            if GROUNDED:
+                if JMP_YES:
+                    PRE_AIR_STRAFE = 0
                 
-                else:
-                    self.speed += SPEED_INC_STRAFE
+                HIT_GROUND = True
+
+            if (not GROUNDED and X != 0) and self.speed < SPEED_MAX:
+                if PRE_AIR_STRAFE != 0:
+                    if (PRE_AIR_STRAFE > 0 and X > 0) or (PRE_AIR_STRAFE < 0 and X < 0):
+                        self.speed -= SPEED_DEC_STRAFE
+                        
+                        if self.speed < _SPD:
+                            self.speed = _SPD
                     
-                    if self.speed > SPEED_MAX:
-                        self.speed = SPEED_MAX
+                    else:
+                        self.speed += SPEED_INC_STRAFE
+                        
+                        if self.speed > SPEED_MAX:
+                            self.speed = SPEED_MAX
 
-            if HIT_GROUND:
-                PRE_AIR_STRAFE = -1 if X < 0 else 1
-            
-            HIT_GROUND = False
+                if HIT_GROUND:
+                    PRE_AIR_STRAFE = -1 if X < 0 else 1
+                
+                HIT_GROUND = False
 
-        if (GROUNDED or X == 0) and self.speed > _SPD:
-            self.speed -= SPEED_DEC_NOSTRAFE
-            
-            if self.speed < _SPD:
+            if (GROUNDED or X == 0) and self.speed > _SPD:
+                self.speed -= SPEED_DEC_NOSTRAFE
+                
+                if self.speed < _SPD:
+                    self.speed = _SPD
+
+            if X == 0 and Z == 0:
                 self.speed = _SPD
-
-        if X == 0 and Z == 0:
-            self.speed = _SPD
-        
-        #print(self.speed)
-        ##############
+            
+            #print(self.speed)
+            ##############
         
         
         
@@ -165,19 +168,21 @@ class __CAM__:
         if keys[pygame.K_d]:
             self.pos = [self.pos[i] + right[i] * self.speed * SPD_FIX for i in range(3)]
         
-        #if keys[pygame.K_SPACE]:
-        #    self.pos[1] += self.speed
-        #if keys[pygame.K_LSHIFT]:
-        #    self.pos[1] -= self.speed
+        if _DBG_KIN == 0:
+            self.pos[1] += KIN.VEL[1]
+            
+            if KIN.VEL[1] == 0 or self.pos[1] < KIN.ALT_MIN + KIN.OFF:
+                self.pos[1] = KIN.ALT_MIN + KIN.OFF
         
-        self.pos[1] += KIN.VEL[1]
+            #print(KIN.ALT_MIN, KIN.VEL, self.pos)
+            
+            KIN.POS = self.pos
         
-        if KIN.VEL[1] == 0 or self.pos[1] < KIN.ALT_MIN + KIN.OFF:
-            self.pos[1] = KIN.ALT_MIN + KIN.OFF
-        
-        #print(KIN.ALT_MIN, KIN.VEL, self.pos)
-        
-        KIN.POS = self.pos
+        else:
+            if keys[pygame.K_SPACE]:
+                self.pos[1] += self.speed
+            if keys[pygame.K_LSHIFT]:
+                self.pos[1] -= self.speed
     
     def look(self):
         # Clear transformation matrix
@@ -503,14 +508,14 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         
         for Y in range(CHK.shape[0]):
             for X in range(CHK.shape[1]):
-                for A in range(CHK[Y, X]):
+                def GEN_CHK(Y, X, A, GEN_VER_ARR, GEN_IDX_ARR):
                     # if not vertically exposed
                     if A != 0 and A != CHK[Y, X] - 1:
                         # if not on border of chunk
                         if (Y != 0 and Y != CHK.shape[0] - 1) and (X != 0 and X != CHK.shape[1] - 1):
                             # if completely surrounded
                             if A < CHK[Y - 1, X] and A < CHK[Y + 1, X] and A < CHK[Y, X - 1] and A < CHK[Y, X + 1]:
-                                continue
+                                return
                     
                     #SIZ_FIX = _SIZ // 2 # not good for infinite terrain gen
                     
@@ -527,7 +532,7 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
                         (X_FIX + 1, A + 1, Y_FIX + 1), # 6
                         (X_FIX    , A + 1, Y_FIX + 1)  # 7
                     ]
-
+                    
                     F_ARR = [
                         (0, 1, 2), (0, 2, 3), # D
                         (4, 5, 6), (4, 6, 7), # U
@@ -536,10 +541,17 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
                         (0, 3, 7), (0, 7, 4), # L
                         (1, 2, 6), (1, 6, 5)  # R
                     ]
-
+                    
                     IDX = len(GEN_VER_ARR)    # Get the current length of the vertex array
                     GEN_VER_ARR.extend(V_ARR) # Add the vertices for this cube
                     GEN_IDX_ARR.extend([(V_A + IDX, V_B + IDX, V_C + IDX) for V_A, V_B, V_C in F_ARR])
+                
+                if _ALT_FIL == 0:
+                    GEN_CHK(Y, X, CHK[Y, X], GEN_VER_ARR, GEN_IDX_ARR)
+                
+                else:
+                    for A in range(CHK[Y, X]):
+                        GEN_CHK(Y, X, A, GEN_VER_ARR, GEN_IDX_ARR)
         
         GEN_VER_ARR = np.array(GEN_VER_ARR, dtype=np.float32)
         GEN_IDX_ARR = np.array(GEN_IDX_ARR, dtype=np.uint32)
@@ -845,16 +857,19 @@ def main():
         mouse_rel = pygame.mouse.get_rel()
         keys = pygame.key.get_pressed()
         
-        JMP_YES = keys[pygame.K_SPACE]
-        GLD_YES = keys[pygame.K_LSHIFT]
         
-        KIN_ALT_MIN = None
         
-        if _MAP.CHK_ARR.get(POS) is not None: KIN_ALT_MIN = (_MAP.CHK_ARR[POS])[int(POS_CAM[1] % _SIZ), int(POS_CAM[0] % _SIZ)]
-        
-        else:                                 KIN_ALT_MIN = _ALT_DEC
-        
-        KIN._UPD(int(KIN_ALT_MIN), JMP_YES, GLD_YES)
+        if _DBG_KIN == 0:
+            JMP_YES = keys[pygame.K_SPACE]
+            GLD_YES = keys[pygame.K_LSHIFT]
+            
+            KIN_ALT_MIN = None
+            
+            if _MAP.CHK_ARR.get(POS) is not None: KIN_ALT_MIN = (_MAP.CHK_ARR[POS])[int(POS_CAM[1] % _SIZ), int(POS_CAM[0] % _SIZ)]
+            
+            else:                                 KIN_ALT_MIN = _ALT_DEC
+            
+            KIN._UPD(int(KIN_ALT_MIN), JMP_YES, GLD_YES)
         
         
         

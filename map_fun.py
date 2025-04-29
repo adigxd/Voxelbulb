@@ -10,8 +10,8 @@ _SED = int(np.clip(int(os.getenv('SED')), 0, (2 ** 32) - 1)) # random seed
 _SIZ = int(os.getenv('SIZ')) # size of chunk
 _COL_DOT = np.clip(int(os.getenv('COL_DOT')), 1, 255) # color of dot setup for blur (lower color = higher effect)
 _MAG = int(os.getenv('MAG')) # number of times to soften chunk's noise
-_MAG_EDG = int(os.getenv('MAG_EDG')) # number of times to soften against other chunk's edges
-_WID_EDG = np.clip(int(os.getenv('WID_EDG')), 1, _SIZ // 2) # how thick edges are considered to be
+_MAG_EDG = int(os.getenv('MAG_EDG')) # number of times to soften against other chunks' edges
+_WID_EDG = np.clip(int(os.getenv('WID_EDG')), 1, _SIZ // 2) # how thick chunk edges are considered to be
 _ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain (MAXIMUM ALTITUDE)
 _MAG_0   = int(os.getenv('MAG_0')) # extra magnitude constant
 
@@ -40,7 +40,7 @@ class __CHK__:
         self.POS = POS
         self.IMG = None
     
-    # pixel within bounds?
+    # pixel within bounds ?
     def _PXL_LOC_YES(self, Y, X):
         if (0 <= Y < self.SIZ) and (0 <= X < self.SIZ):
             return True
