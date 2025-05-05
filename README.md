@@ -1,6 +1,6 @@
 # rndyz
 
-<img src="./DIR-Screenshots/1746459825.png"></img>
+<img src="./DIR-Screenshots/1746459825.png" width=33%></img>
 
 `pip install -r requirements.txt`
 
