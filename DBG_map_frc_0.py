@@ -79,17 +79,21 @@ class __CHK__:
     # [HELPER] create a chunk
     def _GEN_0(self, IMG):
         # Generate mandelbulb values for each voxel in the chunk
-        for z in range(IMG.shape[0]):
-            for x in range(IMG.shape[1]):
-                for y in range(IMG.shape[2]):
-                    world_x = self.POS[0] * self.SIZ + x
-                    world_y = self.POS[1] * self.SIZ + y
-                    world_z = self.POS[2] * self.SIZ + z
+        for Z in range(IMG.shape[0]):
+            for X in range(IMG.shape[1]):
+                for Y in range(IMG.shape[2]):
+                    X_FIX = self.POS[0] * self.SIZ + X
+                    Y_FIX = self.POS[1] * self.SIZ + Y
+                    Z_FIX = self.POS[2] * self.SIZ + Z
                     
-                    value = self._mandelbulb(world_x, world_y, world_z)
+                    if _FRC_MOD >= 0:
+                        if X_FIX > 2.0 or Y_FIX > 2.0 or Z_FIX > 2.0:
+                            IMG[Z, X, Y] = -1.0
+                        
+                        IMG[Z, X, Y] = self._mandelbulb(X_FIX, Y_FIX, Z_FIX)
                     
-                    # Store the value in the image array
-                    IMG[z, x, y] = value
+                    else:
+                        IMG[Z, X, Y] = self._mandelbulb(X_FIX, Y_FIX, Z_FIX)
         
         return IMG
     
