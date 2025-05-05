@@ -1,5 +1,7 @@
 # rndyz
 
+![Image](./DIR-Screenshots/)
+
 `pip install -r requirements.txt`
 
 Fractals: `python DBG_graphics.py` [NEW !]
