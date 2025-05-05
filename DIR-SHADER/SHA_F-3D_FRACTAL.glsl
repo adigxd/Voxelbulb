@@ -15,16 +15,20 @@ uniform vec3 COL_MAX;
 
 uniform float SIZ;
 
-vec3 __COL(float COL)
+vec3 __COL(float RAT)
 {
-	float RAT = COL;
-	
-	if(RAT <= 0.200) { return mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), 5 * (RAT - 0.000)); }
-	if(RAT <= 0.400) { return mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), 5 * (RAT - 0.200)); }
-	if(RAT <= 0.600) { return mix(vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 1.0), 5 * (RAT - 0.400)); }
-	if(RAT <= 0.800) { return mix(vec3(0.0, 1.0, 1.0), vec3(0.0, 0.0, 1.0), 5 * (RAT - 0.600)); }
-	if(RAT <= 1.000) { return mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 1.0), 5 * (RAT - 0.800)); }
-	else             { return vec3(1.0, 1.0, 1.0); } // this should never happen
+    float RAT_MAX_0 = 0.200;
+    float RAT_MAX_1 = 0.400;
+    float RAT_MAX_2 = 0.600;
+    float RAT_MAX_3 = 0.800;
+    float RAT_MAX_4 = 1.000;
+    
+	if(RAT <= RAT_MAX_0) { return mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), 5 * (RAT - RAT_MAX_0)); }
+	if(RAT <= RAT_MAX_1) { return mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), 5 * (RAT - RAT_MAX_1)); }
+	if(RAT <= RAT_MAX_2) { return mix(vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 1.0), 5 * (RAT - RAT_MAX_2)); }
+	if(RAT <= RAT_MAX_3) { return mix(vec3(0.0, 1.0, 1.0), vec3(0.0, 0.0, 1.0), 5 * (RAT - RAT_MAX_3)); }
+	if(RAT <= RAT_MAX_4) { return mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 1.0), 5 * (RAT - RAT_MAX_4)); }
+	else                 { return vec3(1.0, 1.0, 1.0); } // this should never happen
 }
 
 void main()

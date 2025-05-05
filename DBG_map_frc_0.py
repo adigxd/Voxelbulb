@@ -15,6 +15,7 @@ _WID_EDG = np.clip(int(os.getenv('WID_EDG')), 1, _SIZ // 2) # how thick chunk ed
 _ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain (MAXIMUM ALTITUDE)
 _MAG_0   = int(os.getenv('MAG_0')) # extra magnitude constant
 
+_FRC_MOD = int(os.getenv('FRC_MOD')) # fractal mode (0 for normal, 1 for inverted 'alpha')
 _FRC_MAG = float(os.getenv('FRC_MAG')) # magnitude to more clearly render the fractal by making coordinates smaller (preferably < 2)
 _FRC_LOP_MAX = int(os.getenv('FRC_LOP_MAX')) # how many iterations to check if the function escapes 2
 _FRC_POW = float(os.getenv('FRC_POW')) # power for fractal function exponent
@@ -54,6 +55,9 @@ class __CHK__:
             r = np.sqrt(x*x + y*y + z*z)
             
             if r > 2.0:
+                if _FRC_MOD == 0:
+                    return -1.0
+                
                 return I / _FRC_LOP_MAX
             
             theta = np.arctan2(np.sqrt(x*x + y*y), z)
@@ -66,9 +70,11 @@ class __CHK__:
             
             R_END = r
         
-        #print(R_END / 2.0)
+        if _FRC_MOD == 0:
+            return R_END / 2.0
         
-        return -1.0#R_END / 2.0
+        return -1.0
+        
     
     # [HELPER] create a chunk
     def _GEN_0(self, IMG):
