@@ -261,11 +261,11 @@ def _BUF(vertex_data, index_data):
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_data.nbytes, index_data, GL_STATIC_DRAW)
     
     # Define vertex attribute pointer for positions (location = 0)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * vertex_data.itemsize, None) # last = ctypes.c_void_p(0) (?)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * vertex_data.itemsize, ctypes.c_void_p(0))
     glEnableVertexAttribArray(0)
     
     # Color value attribute (single float) (location = 1)
-    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * vertex_data.itemsize, None) # ctypes.c_void_p(3 * vertex_data.itemsize)) (?)
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * vertex_data.itemsize, ctypes.c_void_p(3 * vertex_data.itemsize))
     glEnableVertexAttribArray(1)
     
     # Unbind VAO to avoid accidental modification
@@ -542,8 +542,6 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
                         Z_FIX = Z + C_POS_ACT[2] # - SIZ_FIX
                         
                         FRC_COL = CHK[Z, X, Y]
-                        if FRC_COL >= 1.0:
-                            print(FRC_COL)
                         
                         V_ARR = [
                             (X_FIX    , Y_FIX    , Z_FIX    , FRC_COL), # 0
@@ -856,8 +854,8 @@ def main():
         POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
         
         if POS_PRE != POS:
-            POS_DBG = (POS_CAM[0] / _FRC_MAG, POS_CAM[1] / _FRC_MAG, POS_CAM[2] / _FRC_MAG)
-            print(POS_DBG, '<- new pos')
+            #POS_DBG = (POS_CAM[0] / _FRC_MAG, POS_CAM[1] / _FRC_MAG, POS_CAM[2] / _FRC_MAG)
+            #print(POS_DBG, '<- new pos')
             POS_PRE = POS
             _GEN_MAP(POS_PRE, SIZ=_SIZ)
         
@@ -873,7 +871,7 @@ def main():
                 #T_A = time.perf_counter()
                 VAO, VBO, EBO = _BUF(GEN_VER_ARR, GEN_IDX_ARR)
                 _VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
-                print(f'RES_QUE >> {C_POS}')
+                #print(f'RES_QUE >> {C_POS}')
                 #T_B = time.perf_counter()
                 #print(f'[MAI] {T_B - T_A:.8f} s')
                 

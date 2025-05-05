@@ -6,7 +6,7 @@ flat in float Y; // from vertex shader
 flat in float X; // from vertex shader
 flat in float Z; // from vertex shader
 
-flat in float FRC_COL;
+in float FRC_COL;
 
 uniform vec3 COL_DEF; // Custom uniform for coloring
 

@@ -7,7 +7,7 @@ flat out float Y; // to fragment shader
 flat out float X; // to fragment shader
 flat out float Z; // to fragment shader
 
-flat out float FRC_COL;
+out float FRC_COL;
 
 uniform mat4 model;      // Model transformation
 uniform mat4 view;       // Camera view transformation
