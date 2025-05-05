@@ -523,12 +523,12 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
                            ( X != 0 and X != CHK.shape[1] - 1 ) and \
                            ( Y != 0 and Y != CHK.shape[2] - 1 ):
                             # if completely surrounded (_FRC_COL_MAX + 1 is empty voxel)
-                            if ( CHK[Z - 1, X, Y] == -1 ) or \
-                               ( CHK[Z + 1, X, Y] == -1 ) or \
-                               ( CHK[Z, X - 1, Y] == -1 ) or \
-                               ( CHK[Z, X + 1, Y] == -1 ) or \
-                               ( CHK[Z, X, Y - 1] == -1 ) or \
-                               ( CHK[Z, X, Y + 1] == -1 ):
+                            if ( CHK[Z - 1, X, Y] != -1 ) and \
+                               ( CHK[Z + 1, X, Y] != -1 ) and \
+                               ( CHK[Z, X - 1, Y] != -1 ) and \
+                               ( CHK[Z, X + 1, Y] != -1 ) and \
+                               ( CHK[Z, X, Y - 1] != -1 ) and \
+                               ( CHK[Z, X, Y + 1] != -1 ):
                                 return
                         
                         #SIZ_FIX = _SIZ // 2 # not good for infinite terrain gen
