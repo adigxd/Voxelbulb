@@ -2,7 +2,8 @@
 
 `pip install -r requirements.txt`
 
-`python graphics.py`
+BHOP: `python graphics.py`
+Fractals: `python DBG_graphics.py` [NEW !]
 
 Voxel engine made from scratch with the OpenGL API
 
