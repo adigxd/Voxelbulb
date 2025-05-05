@@ -245,28 +245,32 @@ def _BUF(vertex_data, index_data):
     # Convert data to numpy arrays
     vertex_data = np.array(vertex_data, dtype=np.float32)
     index_data = np.array(index_data, dtype=np.uint32)
-
+    
     # Generate and bind VAO
     vao = glGenVertexArrays(1)
     glBindVertexArray(vao)
-
+    
     # Generate and bind VBO (Vertex Buffer Object)
     vbo = glGenBuffers(1)
     glBindBuffer(GL_ARRAY_BUFFER, vbo)
     glBufferData(GL_ARRAY_BUFFER, vertex_data.nbytes, vertex_data, GL_STATIC_DRAW)
-
+    
     # Generate and bind EBO (Element Buffer Object)
     ebo = glGenBuffers(1)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_data.nbytes, index_data, GL_STATIC_DRAW)
-
-    # Define vertex attribute pointer for positions (location=0)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * vertex_data.itemsize, None) # last = ctypes.c_void_p(0) ?
+    
+    # Define vertex attribute pointer for positions (location = 0)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * vertex_data.itemsize, None) # last = ctypes.c_void_p(0) (?)
     glEnableVertexAttribArray(0)
-
+    
+    # Color value attribute (single float) (location = 1)
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * vertex_data.itemsize, None) # ctypes.c_void_p(3 * vertex_data.itemsize)) (?)
+    glEnableVertexAttribArray(1)
+    
     # Unbind VAO to avoid accidental modification
     glBindVertexArray(0)
-
+    
     return vao, vbo, ebo
 
 def _REN(VAO, CNT_IDX, VBO, EBO):
@@ -518,7 +522,6 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
             for X in range(CHK.shape[1]):
                 for Y in range(CHK.shape[2]):
                     def GEN_CHK(X, Y, Z, GEN_VER_ARR, GEN_IDX_ARR):
-                        
                         # if not exposed (also for next check's bounds)
                         if ( Z != 0 and Z != CHK.shape[0] - 1 ) and \
                            ( X != 0 and X != CHK.shape[1] - 1 ) and \
@@ -538,15 +541,19 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
                         Y_FIX = Y + C_POS_ACT[1] # - SIZ_FIX
                         Z_FIX = Z + C_POS_ACT[2] # - SIZ_FIX
                         
+                        FRC_COL = CHK[Z, X, Y]
+                        if FRC_COL >= 1.0:
+                            print(FRC_COL)
+                        
                         V_ARR = [
-                            (X_FIX    , Y_FIX    , Z_FIX    ), # 0
-                            (X_FIX + 1, Y_FIX    , Z_FIX    ), # 1
-                            (X_FIX + 1, Y_FIX    , Z_FIX + 1), # 2
-                            (X_FIX    , Y_FIX    , Z_FIX + 1), # 3
-                            (X_FIX    , Y_FIX + 1, Z_FIX    ), # 4
-                            (X_FIX + 1, Y_FIX + 1, Z_FIX    ), # 5
-                            (X_FIX + 1, Y_FIX + 1, Z_FIX + 1), # 6
-                            (X_FIX    , Y_FIX + 1, Z_FIX + 1)  # 7
+                            (X_FIX    , Y_FIX    , Z_FIX    , FRC_COL), # 0
+                            (X_FIX + 1, Y_FIX    , Z_FIX    , FRC_COL), # 1
+                            (X_FIX + 1, Y_FIX    , Z_FIX + 1, FRC_COL), # 2
+                            (X_FIX    , Y_FIX    , Z_FIX + 1, FRC_COL), # 3
+                            (X_FIX    , Y_FIX + 1, Z_FIX    , FRC_COL), # 4
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX    , FRC_COL), # 5
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX + 1, FRC_COL), # 6
+                            (X_FIX    , Y_FIX + 1, Z_FIX + 1, FRC_COL)  # 7
                         ]
                         
                         F_ARR = [
@@ -564,7 +571,7 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
                     
                     ESC = CHK[Z, X, Y]
                     
-                    if ESC == -1:
+                    if ESC == -1.0:
                         continue
                     
                     GEN_CHK(X, Y, Z, GEN_VER_ARR, GEN_IDX_ARR)

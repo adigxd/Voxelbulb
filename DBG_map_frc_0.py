@@ -41,62 +41,34 @@ class __CHK__:
         self.IMG = None
     
     def _mandelbulb(self, x, y, z):
-        """
-        Calculate whether a 3D point is in the mandelbulb set
-        Returns a value between 0.0 and 1.0 for points in the set (didn't escape)
-        Returns -1.0 for points that escaped (these won't be rendered)
-        """
-        # Scale coordinates based on the fractal magnitude
         scale = _FRC_MAG
         x0, y0, z0 = x/scale, y/scale, z/scale
         
-        # Center the mandelbulb in the chunk
-        #x0 -= self.SIZ / (2 * scale)
-        #y0 -= self.SIZ / (2 * scale)
-        #z0 -= self.SIZ / (2 * scale)
-        
-        # Initialize variables
         n = _FRC_POW  # Power for the mandelbulb
         cx, cy, cz = x0, y0, z0  # Original coordinates
         x, y, z = 0, 0, 0  # Current position
         
-        # Iterate to determine if point is in mandelbulb set
-        iteration = 0
-        for iteration in range(_FRC_LOP_MAX):
-            # Calculate radius
+        R_END = 0
+        
+        for I in range(_FRC_LOP_MAX):
             r = np.sqrt(x*x + y*y + z*z)
             
-            #if x0 == 0 and y0 == 0 and z0 == 0:
-            #    print(f'<!> {r}')
-            
-            # Check if point escapes
             if r > 2.0:
-                # Point escaped, don't render it
-                return -1.0
-                
-            #if r < 1e-10:  # Avoid division by zero <- COMMENTING THIS OUT FIXES (?)
-            #    break
-                
-            # Convert to spherical coordinates
+                return I / _FRC_LOP_MAX
+            
             theta = np.arctan2(np.sqrt(x*x + y*y), z)
             phi = np.arctan2(y, x)
             
-            # Apply power formula
             r_n = r**n
             x = r_n * np.sin(theta * n) * np.cos(phi * n) + cx
             y = r_n * np.sin(theta * n) * np.sin(phi * n) + cy
             z = r_n * np.cos(theta * n) + cz
             
-        # Return value for non-escaping points (in the set)
-        if iteration == _FRC_LOP_MAX - 1:
-            #if x0 == 0 and y0 == 0 and z0 == 0:
-            #    print('<!> ORIGIN DID NOT ESCAPE')
-            # Point didn't escape (in the set) - render it with a value of 1.0
-            return 1.0
-        else:
-            # Point didn't reach the maximum iteration but also didn't escape
-            # Colorize based on how close it was to escaping
-            return -1.0#(iteration / _FRC_LOP_MAX)
+            R_END = r
+        
+        #print(R_END / 2.0)
+        
+        return -1.0#R_END / 2.0
     
     # [HELPER] create a chunk
     def _GEN_0(self, IMG):
