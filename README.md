@@ -1,6 +1,6 @@
 # rndyz
 
-![Image](./DIR-Screenshots/)
+![Image](./DIR-Screenshots/1746459825.png)
 
 `pip install -r requirements.txt`
 
