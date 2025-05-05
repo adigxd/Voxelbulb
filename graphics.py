@@ -15,36 +15,36 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_THD_CNT   = np.clip(int(os.getenv('THD_CNT')), 1, os.cpu_count())
+_THD_CNT           = np.clip(int(os.getenv('THD_CNT')), 1, os.cpu_count())
 print(f'[CFG] Using {_THD_CNT} threads !')
-_TIC             = int(os.getenv('TIC'))
-_CHK_TIC         = int(os.getenv('CHK_TIC'))
-_FOV             = float(os.getenv('FOV'))
-_SEE_MIN         = float(os.getenv('SEE_MIN'))
-_SEE_MAX         = float(os.getenv('SEE_MAX'))
-_SPD             = float(os.getenv('SPD'))
-_SEN             = float(os.getenv('SEN'))
-_SIZ             = int(os.getenv('SIZ'))
-_LIN             = float(os.getenv('LIN'))
-_DBG_SEE         = int(os.getenv('DBG_SEE'))
-_PTH_SHA_V       = os.getenv('PTH_SHA_V')
-_PTH_SHA_F       = os.getenv('PTH_SHA_F')
-_PTH_SHA_V_PST   = os.getenv('PTH_SHA_V_PST')
-_PTH_SHA_F_PST_X = os.getenv('PTH_SHA_F_PST_X')
-_PTH_SHA_F_PST_0 = os.getenv('PTH_SHA_F_PST_0')
-_PTH_SHA_F_PST_1 = os.getenv('PTH_SHA_F_PST_1')
-_COL_BKG         = tuple(map(float, os.getenv('COL_BKG').split(',')))
-_COL_DEF         = tuple(map(float, os.getenv('COL_DEF').split(',')))
-_COL_MIN         = tuple(map(float, os.getenv('COL_MIN').split(',')))
-_COL_MAX         = tuple(map(float, os.getenv('COL_MAX').split(',')))
-_ALT_MIN         = float(os.getenv('ALT_MIN'))
-_CHK_DIS         = int(os.getenv('CHK_DIS'))
-_ALT_DEC         = int(os.getenv('ALT_DEC'))
-_ALT_FIL         = int(os.getenv('ALT_FIL'))
-_ALT_STA         = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
-_DBG_KIN         = int(os.getenv('DBG_KIN'))
+_TIC               = int(os.getenv('TIC'))
+_CHK_TIC           = int(os.getenv('CHK_TIC'))
+_FOV               = float(os.getenv('FOV'))
+_SEE_MIN           = float(os.getenv('SEE_MIN'))
+_SEE_MAX           = float(os.getenv('SEE_MAX'))
+_SPD               = float(os.getenv('SPD'))
+_SEN               = float(os.getenv('SEN'))
+_SIZ               = int(os.getenv('SIZ'))
+_LIN               = float(os.getenv('LIN'))
+_DBG_SEE           = int(os.getenv('DBG_SEE'))
+_PTH_SHA_V         = os.getenv('PTH_SHA_V')
+_PTH_SHA_F         = os.getenv('PTH_SHA_F')
+_PTH_SHA_V_PST     = os.getenv('PTH_SHA_V_PST')
+_PTH_SHA_F_PST_DEF = os.getenv('PTH_SHA_F_PST_DEF')
+_PTH_SHA_F_PST_0   = os.getenv('PTH_SHA_F_PST_0')
+_PTH_SHA_F_PST_1   = os.getenv('PTH_SHA_F_PST_1')
+_COL_BKG           = tuple(map(float, os.getenv('COL_BKG').split(',')))
+_COL_DEF           = tuple(map(float, os.getenv('COL_DEF').split(',')))
+_COL_MIN           = tuple(map(float, os.getenv('COL_MIN').split(',')))
+_COL_MAX           = tuple(map(float, os.getenv('COL_MAX').split(',')))
+_ALT_MIN           = float(os.getenv('ALT_MIN'))
+_CHK_DIS           = int(os.getenv('CHK_DIS'))
+_ALT_DEC           = int(os.getenv('ALT_DEC'))
+_ALT_FIL           = int(os.getenv('ALT_FIL'))
+_ALT_STA           = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
+_DBG_KIN           = int(os.getenv('DBG_KIN'))
 
-_DIR_SSM         = './DIR-Screenshots'
+_DIR_SSM           = './DIR-Screenshots'
 
 if not os.path.exists(_DIR_SSM):
     os.makedirs(_DIR_SSM)
@@ -711,7 +711,7 @@ def main():
     SHA_SRC_V_PST     = _SHA_GEN(f'{_PTH_SHA_V_PST}')
     SHA_SRC_F_PST_ARR = {}
     
-    SHA_SRC_F_PST_ARR['DEFAULT'] = _SHA_GEN(f'{_PTH_SHA_F_PST_X}')
+    SHA_SRC_F_PST_ARR['DEFAULT']     = _SHA_GEN(f'{_PTH_SHA_F_PST_DEF}')
     SHA_SRC_F_PST_ARR['EDGE_DETECT'] = _SHA_GEN(f'{_PTH_SHA_F_PST_0}')
     SHA_SRC_F_PST_ARR['DITHER']      = _SHA_GEN(f'{_PTH_SHA_F_PST_1}')
     

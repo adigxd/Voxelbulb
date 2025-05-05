@@ -1,12 +1,11 @@
-from frc_map_frc_0 import _MAP
-#from frc_kin import __KIN__
+from DBG_map_frc_0 import _MAP
+from kin import __KIN__
 
 from multiprocessing import Process, Queue, Manager, freeze_support, set_start_method
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from OpenGL.error import GLError
 import time
 import random
 import numpy as np
@@ -15,6 +14,10 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# TEST #
+_FRC_MAG = int(os.getenv('FRC_MAG'))
+########
 
 _THD_CNT           = np.clip(int(os.getenv('THD_CNT')), 1, os.cpu_count())
 print(f'[CFG] Using {_THD_CNT} threads !')
@@ -38,14 +41,12 @@ _COL_BKG           = tuple(map(float, os.getenv('COL_BKG').split(',')))
 _COL_DEF           = tuple(map(float, os.getenv('COL_DEF').split(',')))
 _COL_MIN           = tuple(map(float, os.getenv('COL_MIN').split(',')))
 _COL_MAX           = tuple(map(float, os.getenv('COL_MAX').split(',')))
-#_ALT_MIN          = float(os.getenv('ALT_MIN'))
+_ALT_MIN           = float(os.getenv('ALT_MIN'))
 _CHK_DIS           = int(os.getenv('CHK_DIS'))
-#_ALT_DEC          = int(os.getenv('ALT_DEC'))
-#_ALT_FIL          = int(os.getenv('ALT_FIL'))
-#_ALT_STA          = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
-_FRC_COL_MAX       = int(os.getenv('FRC_COL_MAX')) # 0 - X for voxel color gradient
-
-_DBG_KIN           = 1 # KEEP < < <
+_ALT_DEC           = int(os.getenv('ALT_DEC'))
+_ALT_FIL           = int(os.getenv('ALT_FIL'))
+_ALT_STA           = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
+_DBG_KIN           = 1
 
 _DIR_SSM           = './DIR-Screenshots'
 
@@ -72,7 +73,7 @@ class __CAM__:
         self.speed = _SPD
         self.sensitivity = _SEN
     
-    def update(self, keys, mouse_rel):
+    def update(self, keys, mouse_rel, KIN):
         # Mouse look
         self.rot[0] -= mouse_rel[1] * self.sensitivity  # pitch
         self.rot[1] += mouse_rel[0] * self.sensitivity  # yaw
@@ -83,6 +84,63 @@ class __CAM__:
         # Calculate forward and right vectors
         yaw = math.radians(self.rot[1])
         pitch = math.radians(self.rot[0])
+        
+        
+        
+        if _DBG_KIN == 0:
+            # BHOP Logic #
+            X = 0  # Horizontal axis
+            Z = 0  # Vertical axis
+            if keys[pygame.K_a]: X -= 1
+            if keys[pygame.K_d]: X += 1
+            if keys[pygame.K_w]: Z += 1
+            if keys[pygame.K_s]: Z -= 1
+            
+            JMP_YES = keys[pygame.K_SPACE]
+            
+            global HIT_GROUND
+            global PRE_AIR_STRAFE
+            
+            GROUNDED = KIN.POS[1] - KIN.OFF == KIN.ALT_MIN
+            
+            if GROUNDED:
+                if JMP_YES:
+                    PRE_AIR_STRAFE = 0
+                
+                HIT_GROUND = True
+
+            if (not GROUNDED and X != 0) and self.speed < SPEED_MAX:
+                if PRE_AIR_STRAFE != 0:
+                    if (PRE_AIR_STRAFE > 0 and X > 0) or (PRE_AIR_STRAFE < 0 and X < 0):
+                        self.speed -= SPEED_DEC_STRAFE
+                        
+                        if self.speed < _SPD:
+                            self.speed = _SPD
+                    
+                    else:
+                        self.speed += SPEED_INC_STRAFE
+                        
+                        if self.speed > SPEED_MAX:
+                            self.speed = SPEED_MAX
+
+                if HIT_GROUND:
+                    PRE_AIR_STRAFE = -1 if X < 0 else 1
+                
+                HIT_GROUND = False
+
+            if (GROUNDED or X == 0) and self.speed > _SPD:
+                self.speed -= SPEED_DEC_NOSTRAFE
+                
+                if self.speed < _SPD:
+                    self.speed = _SPD
+
+            if X == 0 and Z == 0:
+                self.speed = _SPD
+            
+            #print(self.speed)
+            ##############
+        
+        
         
         forward = [
             math.sin(yaw),
@@ -113,10 +171,22 @@ class __CAM__:
             self.pos = [self.pos[i] - right[i] * self.speed * SPD_FIX for i in range(3)]
         if keys[pygame.K_d]:
             self.pos = [self.pos[i] + right[i] * self.speed * SPD_FIX for i in range(3)]
-        if keys[pygame.K_SPACE]:
-            self.pos[1] += self.speed
-        if keys[pygame.K_LSHIFT]:
-            self.pos[1] -= self.speed
+        
+        if _DBG_KIN == 0:
+            self.pos[1] += KIN.VEL[1]
+            
+            if KIN.VEL[1] == 0 or self.pos[1] < KIN.ALT_MIN + KIN.OFF:
+                self.pos[1] = KIN.ALT_MIN + KIN.OFF
+        
+            #print(KIN.ALT_MIN, KIN.VEL, self.pos)
+            
+            KIN.POS = self.pos
+        
+        else:
+            if keys[pygame.K_SPACE]:
+                self.pos[1] += self.speed
+            if keys[pygame.K_LSHIFT]:
+                self.pos[1] -= self.speed
     
     def look(self):
         # Clear transformation matrix
@@ -131,7 +201,7 @@ class __CAM__:
 
 def _BUF_PST(): # fullscreen quad
     # Vertex positions and texture coordinates for a fullscreen quad
-    VER_ARR = np.array([
+    vertices = np.array([
         # Positions (x, y, z)    # Texture coords (u, v)
         -1.0, -1.0, 0.0,         0.0, 0.0,
          1.0, -1.0, 0.0,         1.0, 0.0,
@@ -139,72 +209,66 @@ def _BUF_PST(): # fullscreen quad
         -1.0,  1.0, 0.0,         0.0, 1.0
     ], dtype=np.float32)
     
-    IDX_ARR = np.array([
+    indices = np.array([
         0, 1, 2,  # First triangle
         0, 2, 3   # Second triangle
     ], dtype=np.uint32)
     
     # Create VAO and buffers
-    VAO = glGenVertexArrays(1)
-    glBindVertexArray(VAO)
+    vao = glGenVertexArrays(1)
+    glBindVertexArray(vao)
     
-    VBO = glGenBuffers(1)
-    glBindBuffer(GL_ARRAY_BUFFER, VBO)
-    glBufferData(GL_ARRAY_BUFFER, VER_ARR.nbytes, VER_ARR, GL_STATIC_DRAW)
+    vbo = glGenBuffers(1)
+    glBindBuffer(GL_ARRAY_BUFFER, vbo)
+    glBufferData(GL_ARRAY_BUFFER, vertices.nbytes, vertices, GL_STATIC_DRAW)
     
-    EBO = glGenBuffers(1)
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO)
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, IDX_ARR.nbytes, IDX_ARR, GL_STATIC_DRAW)
+    ebo = glGenBuffers(1)
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.nbytes, indices, GL_STATIC_DRAW)
     
     # Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * VER_ARR.itemsize, None)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * vertices.itemsize, None)
     glEnableVertexAttribArray(0)
     
     # Texture coordinate attribute
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * VER_ARR.itemsize, 
-                         ctypes.c_void_p(3 * VER_ARR.itemsize))
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * vertices.itemsize, 
+                         ctypes.c_void_p(3 * vertices.itemsize))
     glEnableVertexAttribArray(1)
     
     # Unbind VAO
     glBindVertexArray(0)
     
-    return VAO, VBO, EBO
+    return vao, vbo, ebo
 
-def _BUF(VER_DAT, IDX_DAT, COL_DAT):
+def _BUF(vertex_data, index_data):
     # Convert data to numpy arrays
-    VER_DAT = np.array(VER_DAT, dtype=np.float32)
-    IDX_DAT = np.array(IDX_DAT, dtype=np.uint32)
-    #COL_DAT = np.array(COL_DAT, dtype=np.float32) # CHECK IF CAN BE REPLACED WITH DATA TYPE INT16
+    vertex_data = np.array(vertex_data, dtype=np.float32)
+    index_data = np.array(index_data, dtype=np.uint32)
 
     # Generate and bind VAO
-    VAO = glGenVertexArrays(1)
-    glBindVertexArray(VAO)
+    vao = glGenVertexArrays(1)
+    glBindVertexArray(vao)
 
     # Generate and bind VBO (Vertex Buffer Object)
-    VBO = glGenBuffers(1)
-    glBindBuffer(GL_ARRAY_BUFFER, VBO)
-    glBufferData(GL_ARRAY_BUFFER, VER_DAT.nbytes, VER_DAT, GL_STATIC_DRAW)
-
-    # Generate and bind color VBO
-    VBO_COL = glGenBuffers(1)
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_COL)
-    glBufferData(GL_ARRAY_BUFFER, COL_DAT.nbytes, COL_DAT, GL_STATIC_DRAW)
+    vbo = glGenBuffers(1)
+    glBindBuffer(GL_ARRAY_BUFFER, vbo)
+    glBufferData(GL_ARRAY_BUFFER, vertex_data.nbytes, vertex_data, GL_STATIC_DRAW)
 
     # Generate and bind EBO (Element Buffer Object)
-    EBO = glGenBuffers(1)
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO)
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, IDX_DAT.nbytes, IDX_DAT, GL_STATIC_DRAW)
+    ebo = glGenBuffers(1)
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_data.nbytes, index_data, GL_STATIC_DRAW)
 
     # Define vertex attribute pointer for positions (location=0)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * VER_DAT.itemsize, None) # last = ctypes.c_void_p(0) ?
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * vertex_data.itemsize, None) # last = ctypes.c_void_p(0) ?
     glEnableVertexAttribArray(0)
 
     # Unbind VAO to avoid accidental modification
     glBindVertexArray(0)
 
-    return VAO, VBO, EBO, VBO_COL
+    return vao, vbo, ebo
 
-def _REN(VAO, CNT_IDX, VBO, EBO, VBO_COL):
+def _REN(VAO, CNT_IDX, VBO, EBO):
     CNT_IDX = CNT_IDX * 3 # 3 per index idk
     glBindVertexArray(VAO)
     glDrawElements(GL_TRIANGLES, CNT_IDX, GL_UNSIGNED_INT, None)
@@ -243,7 +307,6 @@ def _SHA_GEN(PTH):
         print(f'ERR >> _SHA_GEN >> cannot find {PTH}')
         return None
 
-
 def _SHA_COM(SHA_SRC, SHA_TYP):
     SHA = glCreateShader(SHA_TYP)
     glShaderSource(SHA, SHA_SRC)
@@ -269,20 +332,14 @@ def _SHA_PRO(SHA_SRC_V, SHA_SRC_F):
     glAttachShader(PRO_SHA, SHA_F)
     glLinkProgram(PRO_SHA)
 
-    # Check link status BEFORE trying to get log
-    link_status = glGetProgramiv(PRO_SHA, GL_LINK_STATUS)
-    if not link_status:
-        # Only try to get log if there was an error
-        try:
-            ERR = glGetProgramInfoLog(PRO_SHA).decode()
-            print(f'ERR >> _SHA_PRO >> {ERR}')
-        except OpenGL.error.GLError as e:
-            print(f'ERR >> _SHA_PRO >> Could not retrieve error log: {e}')
-        
+    if not glGetProgramiv(PRO_SHA, GL_LINK_STATUS):
         glDeleteProgram(PRO_SHA)
+        
+        ERR = glGetProgramInfoLog(PRO_SHA).decode()
+        print(f'ERR >> _SHA_PRO >> {ERR}')
+        
         return None
     
-    # Delete shaders after successful link
     glDeleteShader(SHA_V)
     glDeleteShader(SHA_F)
 
@@ -301,20 +358,22 @@ def _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P):
     glUniformMatrix4fv(LOC_V, 1, GL_TRUE, MAT_V)
     glUniformMatrix4fv(LOC_P, 1, GL_TRUE, MAT_P)
 
-def _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, FRC_COL_MAX=_FRC_COL_MAX):
+def _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC):
     glUseProgram(PRO_SHA)
     
-    LOC_COL         = glGetUniformLocation(PRO_SHA, 'COL_DEF')
-    LOC_COL_MIN     = glGetUniformLocation(PRO_SHA, 'COL_MIN')
-    LOC_COL_MAX     = glGetUniformLocation(PRO_SHA, 'COL_MAX')
-    LOC_SIZ         = glGetUniformLocation(PRO_SHA, 'SIZ')
-    LOC_FRC_COL_MAX = glGetUniformLocation(PRO_SHA, 'FRC_COL_MAX')
+    LOC_COL     = glGetUniformLocation(PRO_SHA, 'COL_DEF')
+    LOC_COL_MIN = glGetUniformLocation(PRO_SHA, 'COL_MIN')
+    LOC_COL_MAX = glGetUniformLocation(PRO_SHA, 'COL_MAX')
+    LOC_SIZ     = glGetUniformLocation(PRO_SHA, 'SIZ')
+    LOC_ALT_MIN = glGetUniformLocation(PRO_SHA, 'ALT_MIN')
+    LOC_ALT_MAX = glGetUniformLocation(PRO_SHA, 'ALT_MAX')
 
     glUniform3fv(LOC_COL_MIN, 1, COL_MIN)
     glUniform3fv(LOC_COL_MAX, 1, COL_MAX)
     glUniform3fv(LOC_COL, 1, COL)
     glUniform1f(LOC_SIZ, SIZ)
-    glUniform1i(LOC_FRC_COL_MAX, FRC_COL_MAX)
+    glUniform1f(LOC_ALT_MIN, ALT_MIN)
+    glUniform1f(LOC_ALT_MAX, ALT_MAX)
 
 
 
@@ -413,7 +472,7 @@ def _GEN_MAT_P(FOV, ASPECT, NEAR, FAR):
 
 
 
-def _DIS_2(POS_A, POS_B):
+def _DIS_3(POS_A, POS_B):
     return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2)
 
 def _DIS_3(POS_A, POS_B):
@@ -449,79 +508,72 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         _MAP._CHK_ADD(C_POS)
         CHK = _MAP.CHK_ARR[C_POS]
         
-        print(C_POS)
-        SLC_CNT = 0
-        for SLC in CHK:
-            print(SLC_CNT)
-            print(SLC)
-            SLC_CNT += 1
-        print('________________')
-        
         GEN_VER_ARR = []
         GEN_IDX_ARR = []
-        GEN_COL_ARR = []
         
         C_POS_ACT = (_SIZ * C_POS[0], _SIZ * C_POS[1], _SIZ * C_POS[2])
         
-        for Y in range(CHK.shape[0]):
+        for Z in range(CHK.shape[0]):
             for X in range(CHK.shape[1]):
-                for A in range(CHK.shape[2]):
-                    ESC = CHK[Y, X, A]
+                for Y in range(CHK.shape[2]):
+                    def GEN_CHK(X, Y, Z, GEN_VER_ARR, GEN_IDX_ARR):
+                        
+                        # if not exposed (also for next check's bounds)
+                        if ( Z != 0 and Z != CHK.shape[0] - 1 ) and \
+                           ( X != 0 and X != CHK.shape[1] - 1 ) and \
+                           ( Y != 0 and Y != CHK.shape[2] - 1 ):
+                            # if completely surrounded (_FRC_COL_MAX + 1 is empty voxel)
+                            if ( CHK[Z - 1, X, Y] == -1 ) or \
+                               ( CHK[Z + 1, X, Y] == -1 ) or \
+                               ( CHK[Z, X - 1, Y] == -1 ) or \
+                               ( CHK[Z, X + 1, Y] == -1 ) or \
+                               ( CHK[Z, X, Y - 1] == -1 ) or \
+                               ( CHK[Z, X, Y + 1] == -1 ):
+                                return
+                        
+                        #SIZ_FIX = _SIZ // 2 # not good for infinite terrain gen
+                        
+                        X_FIX = X + C_POS_ACT[0] # - SIZ_FIX
+                        Y_FIX = Y + C_POS_ACT[1] # - SIZ_FIX
+                        Z_FIX = Z + C_POS_ACT[2] # - SIZ_FIX
+                        
+                        V_ARR = [
+                            (X_FIX    , Y_FIX    , Z_FIX    ), # 0
+                            (X_FIX + 1, Y_FIX    , Z_FIX    ), # 1
+                            (X_FIX + 1, Y_FIX    , Z_FIX + 1), # 2
+                            (X_FIX    , Y_FIX    , Z_FIX + 1), # 3
+                            (X_FIX    , Y_FIX + 1, Z_FIX    ), # 4
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX    ), # 5
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX + 1), # 6
+                            (X_FIX    , Y_FIX + 1, Z_FIX + 1)  # 7
+                        ]
+                        
+                        F_ARR = [
+                            (0, 1, 2), (0, 2, 3), # D
+                            (4, 5, 6), (4, 6, 7), # U
+                            (0, 1, 5), (0, 5, 4), # F
+                            (2, 3, 7), (2, 7, 6), # B
+                            (0, 3, 7), (0, 7, 4), # L
+                            (1, 2, 6), (1, 6, 5)  # R
+                        ]
+                        
+                        IDX = len(GEN_VER_ARR)    # Get the current length of the vertex array
+                        GEN_VER_ARR.extend(V_ARR) # Add the vertices for this cube
+                        GEN_IDX_ARR.extend([(V_A + IDX, V_B + IDX, V_C + IDX) for V_A, V_B, V_C in F_ARR])
                     
-                    if ESC <= 127:#== _FRC_COL_MAX + 1:
+                    ESC = CHK[Z, X, Y]
+                    
+                    if ESC == -1:
                         continue
                     
-                    # if not exposed (also for next check's bounds)
-                    if ( Y != 0 and Y != CHK.shape[0] - 1 ) and \
-                       ( X != 0 and X != CHK.shape[1] - 1 ) and \
-                       ( A != 0 and A != CHK.shape[2] - 1 ):
-                        # if completely surrounded (_FRC_COL_MAX + 1 is empty voxel)
-                        if ( CHK[Y - 1, X, A] == _FRC_COL_MAX + 1 ) or \
-                           ( CHK[Y + 1, X, A] == _FRC_COL_MAX + 1 ) or \
-                           ( CHK[Y, X - 1, A] == _FRC_COL_MAX + 1 ) or \
-                           ( CHK[Y, X + 1, A] == _FRC_COL_MAX + 1 ) or \
-                           ( CHK[Y, X, A - 1] == _FRC_COL_MAX + 1 ) or \
-                           ( CHK[Y, X, A + 1] == _FRC_COL_MAX + 1 ):
-                            continue
-                    
-                    ESC_ARR = [ESC] * 8 # for each vertex
-                    
-                    X_FIX = X + C_POS_ACT[0]
-                    Y_FIX = Y + C_POS_ACT[2]
-                    A_FIX = A + C_POS_ACT[1]
-                    
-                    V_ARR = [
-                        (X_FIX    , A_FIX    , Y_FIX    ), # 0
-                        (X_FIX + 1, A_FIX    , Y_FIX    ), # 1
-                        (X_FIX + 1, A_FIX    , Y_FIX + 1), # 2
-                        (X_FIX    , A_FIX    , Y_FIX + 1), # 3
-                        (X_FIX    , A_FIX + 1, Y_FIX    ), # 4
-                        (X_FIX + 1, A_FIX + 1, Y_FIX    ), # 5
-                        (X_FIX + 1, A_FIX + 1, Y_FIX + 1), # 6
-                        (X_FIX    , A_FIX + 1, Y_FIX + 1)  # 7
-                    ]
-                    
-                    F_ARR = [
-                        (0, 1, 2), (0, 2, 3), # D
-                        (4, 5, 6), (4, 6, 7), # U
-                        (0, 1, 5), (0, 5, 4), # F
-                        (2, 3, 7), (2, 7, 6), # B
-                        (0, 3, 7), (0, 7, 4), # L
-                        (1, 2, 6), (1, 6, 5)  # R
-                    ]
-                    
-                    IDX = len(GEN_VER_ARR)    # Get the current length of the vertex array
-                    GEN_VER_ARR.extend(V_ARR) # Add the vertices for this cube
-                    GEN_IDX_ARR.extend([(V_A + IDX, V_B + IDX, V_C + IDX) for V_A, V_B, V_C in F_ARR])
-                    GEN_COL_ARR.extend(ESC_ARR)
+                    GEN_CHK(X, Y, Z, GEN_VER_ARR, GEN_IDX_ARR)
         
         GEN_VER_ARR = np.array(GEN_VER_ARR, dtype=np.float32)
         GEN_IDX_ARR = np.array(GEN_IDX_ARR, dtype=np.uint32)
-        GEN_COL_ARR = np.array(GEN_COL_ARR, dtype=np.int16)
         
         #print(f"[THD] Generated chunk @ {C_POS} ; putting in queue")
         
-        RES_QUE.put((C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR, GEN_COL_ARR))
+        RES_QUE.put((C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR))
         
         #REQ_QUE.task_done() # remove ?
         
@@ -550,22 +602,22 @@ def _THD_ARR_END():
     _REQ_QUE.close() # added
     _RES_QUE.close() # added
 
-def _GEN_MAP(POS_CHK, SIZ=_SIZ):
-    CHK_LOW_X = int(POS_CHK[0] - _CHK_DIS)
-    CHK_HIG_X = int(POS_CHK[0] + _CHK_DIS + 1)
-    CHK_LOW_Y = int(POS_CHK[2] - _CHK_DIS)
-    CHK_HIG_Y = int(POS_CHK[2] + _CHK_DIS + 1)
-    CHK_LOW_A = int(POS_CHK[1] - _CHK_DIS)
-    CHK_HIG_A = int(POS_CHK[1] + _CHK_DIS + 1)
+def _GEN_MAP(POS, SIZ=_SIZ):
+    CHK_LOW_X = int(POS[0] - _CHK_DIS)
+    CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
+    CHK_LOW_Y = int(POS[1] - _CHK_DIS)
+    CHK_HIG_Y = int(POS[1] + _CHK_DIS + 1)
+    CHK_LOW_Z = int(POS[2] - _CHK_DIS)
+    CHK_HIG_Z = int(POS[2] + _CHK_DIS + 1)
     
     REN_ARR = []
     
     for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
         for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
-            for C_IDX_A in range(CHK_LOW_A, CHK_HIG_A):
-                C_POS = (C_IDX_X, C_IDX_Y, C_IDX_A)
+            for C_IDX_Z in range(CHK_LOW_Z, CHK_HIG_Z):
+                C_POS = (C_IDX_X, C_IDX_Y, C_IDX_Z)
                 
-                DIS = _DIS_3(POS_CHK, C_POS)
+                DIS = _DIS_3(POS, C_POS)
                 
                 if DIS <= _CHK_DIS:
                     REN_ARR.append((DIS, C_POS))
@@ -576,13 +628,14 @@ def _GEN_MAP(POS_CHK, SIZ=_SIZ):
         if C_POS not in _VAO_ARR:
             _REQ_QUE.put((C_POS, SIZ))
     
-    ''' # maybe reuse something like this later for other purposes
+    ''' maybe reuse something like this later for other purposes
     REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
     for C_POS in REN_SET_REM:
-        VAO, _, VBO, EBO, VBO_COL = _VAO_ARR[C_POS]
+        VAO, _, VBO, EBO = _VAO_ARR[C_POS]
         
         glDeleteVertexArrays(1, [VAO])
-        glDeleteBuffers(1, [VBO, EBO, VBO_COL])
+        glDeleteBuffers(1, [VBO])
+        glDeleteBuffers(1, [EBO])
         
         with _LCK_VAO_ARR: # remove lock ?
             del _VAO_ARR[C_POS]
@@ -731,7 +784,11 @@ def main():
     
     
     CHK_TIC_MAX = _CHK_TIC
-    POS_CHK_PRE = (None, None, None)
+    POS_PRE = (None, None, None)
+    
+    
+    
+    KIN = __KIN__(2, (0, 0, 0))
     
     
     
@@ -787,12 +844,14 @@ def main():
         
         
         
-        POS_CAM = (camera.pos[0], camera.pos[1], camera.pos[2]) # maybe refactor this lol
-        POS_CHK = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
+        POS_CAM = (camera.pos[0], camera.pos[1], camera.pos[2])
+        POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
         
-        if POS_CHK_PRE != POS_CHK:
-            POS_CHK_PRE = POS_CHK
-            _GEN_MAP(POS_CHK_PRE, SIZ=_SIZ)
+        if POS_PRE != POS:
+            POS_DBG = (POS_CAM[0] / _FRC_MAG, POS_CAM[1] / _FRC_MAG, POS_CAM[2] / _FRC_MAG)
+            print(POS_DBG, '<- new pos')
+            POS_PRE = POS
+            _GEN_MAP(POS_PRE, SIZ=_SIZ)
         
         
         
@@ -800,12 +859,13 @@ def main():
         
         while not _RES_QUE.empty() and CHK_TIC_CNT < CHK_TIC_MAX:
             try:
-                C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR, GEN_COL_ARR = _RES_QUE.get_nowait()
+                C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR = _RES_QUE.get_nowait()
                 _MAP._CHK_ADD_MAN(C_POS, CHK)
                 
                 #T_A = time.perf_counter()
-                VAO, VBO, EBO, VBO_COL = _BUF(GEN_VER_ARR, GEN_IDX_ARR, GEN_COL_ARR)
-                _VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO, VBO_COL)
+                VAO, VBO, EBO = _BUF(GEN_VER_ARR, GEN_IDX_ARR)
+                _VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
+                print(f'RES_QUE >> {C_POS}')
                 #T_B = time.perf_counter()
                 #print(f'[MAI] {T_B - T_A:.8f} s')
                 
@@ -821,13 +881,27 @@ def main():
         
         
         
+        if _DBG_KIN == 0:
+            JMP_YES = keys[pygame.K_SPACE]
+            GLD_YES = keys[pygame.K_LSHIFT]
+            
+            KIN_ALT_MIN = None
+            
+            if _MAP.CHK_ARR.get(POS) is not None: KIN_ALT_MIN = (_MAP.CHK_ARR[POS])[int(POS_CAM[1] % _SIZ), int(POS_CAM[0] % _SIZ)]
+            
+            else:                                 KIN_ALT_MIN = _ALT_DEC
+            
+            KIN._UPD(int(KIN_ALT_MIN), JMP_YES, GLD_YES)
+        
+        
+        
         # Update camera
-        camera.update(keys, mouse_rel)
+        camera.update(keys, mouse_rel, KIN)
         
         # so everything can know where the player currently is
-        CAM_POS['X'] = camera.pos[0]
-        CAM_POS['Y'] = camera.pos[1]
-        CAM_POS['Z'] = camera.pos[2]
+        # CAM_POS['X'] = camera.pos[0]
+        # CAM_POS['Y'] = camera.pos[1]
+        # CAM_POS['Z'] = camera.pos[2]
         
         
         
@@ -843,7 +917,7 @@ def main():
         
         _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P)
         
-        _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, FRC_COL_MAX=_FRC_COL_MAX)
+        _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC)
         
         # Apply camera transformation
         camera.look()
@@ -855,19 +929,21 @@ def main():
         
         
         
-        CHK_LOW_X = int(POS_CHK[0] - _CHK_DIS)
-        CHK_HIG_X = int(POS_CHK[0] + _CHK_DIS + 1)
-        CHK_LOW_Y = int(POS_CHK[2] - _CHK_DIS)
-        CHK_HIG_Y = int(POS_CHK[2] + _CHK_DIS + 1)
-        CHK_LOW_A = int(POS_CHK[1] - _CHK_DIS)
-        CHK_HIG_A = int(POS_CHK[1] + _CHK_DIS + 1)
+        CHK_LOW_X = int(POS[0] - _CHK_DIS)
+        CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
+        CHK_LOW_Y = int(POS[1] - _CHK_DIS)
+        CHK_HIG_Y = int(POS[1] + _CHK_DIS + 1)
+        CHK_LOW_Z = int(POS[2] - _CHK_DIS)
+        CHK_HIG_Z = int(POS[2] + _CHK_DIS + 1)
+        
+        REN_ARR = []
         
         for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
             for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
-                for C_IDX_A in range(CHK_LOW_A, CHK_HIG_A):
-                    C_POS = (C_IDX_X, C_IDX_Y, C_IDX_A)
+                for C_IDX_Z in range(CHK_LOW_Z, CHK_HIG_Z):
+                    C_POS = (C_IDX_X, C_IDX_Y, C_IDX_Z)
                     
-                    if _DIS_3(POS_CHK, C_POS) > _CHK_DIS:
+                    if _DIS_3(POS, C_POS) > _CHK_DIS:
                         continue
                     
                     if C_POS in _VAO_ARR: # need ?

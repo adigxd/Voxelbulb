@@ -51,7 +51,7 @@ void main() {
 
 		float EDG_MAG = sqrt(GRD_X * GRD_X + GRD_Y * GRD_Y);
 
-		FragColor = vec4(vec3(EDG_MAG, 0.0, 0.0), 1.0);
+		FragColor = vec4(vec3(0.0, 0.0, EDG_MAG), 1.0);
 	}
 	
 	else

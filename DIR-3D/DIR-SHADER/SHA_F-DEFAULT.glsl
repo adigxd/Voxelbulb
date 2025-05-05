@@ -13,9 +13,6 @@ uniform vec3 COL_MAX;
 
 uniform float SIZ;
 
-uniform float ALT_MIN;
-uniform float ALT_MAX;
-
 void main()
 {
     FragColor = vec4(vec3(1.0), 1.0);

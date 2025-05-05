@@ -8,12 +8,12 @@ load_dotenv()
 
 _SED = int(np.clip(int(os.getenv('SED')), 0, (2 ** 32) - 1)) # random seed
 _SIZ = int(os.getenv('SIZ')) # size of chunk
-_COL_DOT = np.clip(int(os.getenv('COL_DOT')), 1, 255) # color of dot setup for blur (lower color = higher effect)
-_MAG = int(os.getenv('MAG')) # number of times to soften chunk's noise
-_MAG_EDG = int(os.getenv('MAG_EDG')) # number of times to soften against other chunks' edges
-_WID_EDG = np.clip(int(os.getenv('WID_EDG')), 1, _SIZ // 2) # how thick chunk edges are considered to be
-_ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain (MAXIMUM ALTITUDE)
-_MAG_0   = int(os.getenv('MAG_0')) # extra magnitude constant
+#_COL_DOT = np.clip(int(os.getenv('COL_DOT')), 1, 255) # color of dot setup for blur (lower color = higher effect)
+#_MAG = int(os.getenv('MAG')) # number of times to soften chunk's noise
+#_MAG_EDG = int(os.getenv('MAG_EDG')) # number of times to soften against other chunks' edges
+#_WID_EDG = np.clip(int(os.getenv('WID_EDG')), 1, _SIZ // 2) # how thick chunk edges are considered to be
+#_ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain (MAXIMUM ALTITUDE)
+#_MAG_0   = int(os.getenv('MAG_0')) # extra magnitude constant
 
 _FRC_MAG = int(os.getenv('FRC_MAG')) # magnitude to more clearly render the fractal by making coordinates smaller (preferably < 2)
 _FRC_LOP_MAX = int(os.getenv('FRC_LOP_MAX')) # how many iterations to check if the function escapes 2 ; MUST BE UNDER UINT# DATA TYPE
@@ -97,23 +97,24 @@ class __CHK__:
                     # If we escaped, calculate a value based on the iteration count
                     if FRC_ESC_YES:
                         ESC = int((FRC_LOP_CNT / _FRC_LOP_MAX) * _FRC_COL_MAX)
-                    
+
                     IMG[Y, X, A] = ESC
                     '''
-                    IMG[Y, X, A] = random.randint(0, _FRC_COL_MAX)
+                    #IMG[Y, X, A] = random.randint(0, _FRC_COL_MAX)
+                    IMG[Y, X, A] = random.randint(0, 255)
         
         return IMG
     
     # create a chunk
     def _GEN(self):
         # start with blank white
-        IMG = np.full((self.SIZ, self.SIZ, self.SIZ), -1, dtype=np.int16) # this data type is chosen for full rainbow gradient
+        IMG = np.full((self.SIZ, self.SIZ, self.SIZ), _FRC_COL_MAX + 1, dtype=np.float32) # this data type is chosen for full rainbow gradient
         
         IMG = self._GEN_0(IMG)
         
         self.IMG = IMG
         
-        '''cv2.imshow('IMG', IMG)
+        '''cv2.imshow('IMG', IMG[:, :, 0])
         cv2.waitKey(0)
         cv2.destroyAllWindows()'''
         
