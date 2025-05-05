@@ -1,6 +1,8 @@
 from DBG_map_frc_0 import _MAP
 from kin import __KIN__
 
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1' # can be any value to get rid of pygame message
 from multiprocessing import Process, Queue, Manager, freeze_support, set_start_method
 import pygame
 from pygame.locals import *
@@ -10,7 +12,6 @@ import time
 import random
 import numpy as np
 import math
-import os
 from dotenv import load_dotenv
 
 load_dotenv()

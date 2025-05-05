@@ -19,8 +19,6 @@ _FRC_MAG = float(os.getenv('FRC_MAG')) # magnitude to more clearly render the fr
 _FRC_LOP_MAX = int(os.getenv('FRC_LOP_MAX')) # how many iterations to check if the function escapes 2
 _FRC_POW = float(os.getenv('FRC_POW')) # power for fractal function exponent
 
-print(_FRC_MAG, _FRC_LOP_MAX, _FRC_POW)
-
 random.seed(_SED)
 np.random.seed(_SED)
 
@@ -68,8 +66,8 @@ class __CHK__:
             # Calculate radius
             r = np.sqrt(x*x + y*y + z*z)
             
-            if x0 == 0 and y0 == 0 and z0 == 0:
-                print(f'<!> {r}')
+            #if x0 == 0 and y0 == 0 and z0 == 0:
+            #    print(f'<!> {r}')
             
             # Check if point escapes
             if r > 2.0:
@@ -91,8 +89,8 @@ class __CHK__:
             
         # Return value for non-escaping points (in the set)
         if iteration == _FRC_LOP_MAX - 1:
-            if x0 == 0 and y0 == 0 and z0 == 0:
-                print('<!> ORIGIN DID NOT ESCAPE')
+            #if x0 == 0 and y0 == 0 and z0 == 0:
+            #    print('<!> ORIGIN DID NOT ESCAPE')
             # Point didn't escape (in the set) - render it with a value of 1.0
             return 1.0
         else:
