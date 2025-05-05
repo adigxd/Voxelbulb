@@ -1,6 +1,7 @@
 # rndyz
 
-<img src="./DIR-Screenshots/1746459825.png" width=33%></img>
+<img alt="Mandelbrot Set" src="./DIR-Screenshots/1745879501.png" width=33%></img>
+<img alt="Julia Set" src="./DIR-Screenshots/1745967395.png" width=33%></img>
 
 `pip install -r requirements.txt`
 
