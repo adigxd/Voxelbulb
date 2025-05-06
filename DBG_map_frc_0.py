@@ -71,7 +71,7 @@ class __CHK__:
             R_END = r
         
         if _FRC_MOD == 0:
-            return R_END / 2.0
+            return abs(R_END) / 2.0
         
         return -1.0
         
