@@ -1,4 +1,4 @@
-from map_frc_0_jul import _MAP
+from map_1 import _MAP # from map_frc_0_jul import _MAP
 from kin import __KIN__
 
 from multiprocessing import Process, Queue, Manager, freeze_support, set_start_method
@@ -910,6 +910,8 @@ def main():
         CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
         CHK_LOW_Y = int(POS[1] - _CHK_DIS)
         CHK_HIG_Y = int(POS[1] + _CHK_DIS + 1)
+        
+        # TODO: remove chunks in buffers etc that have become outside of current render distance (see graphics_mdb.py)
         
         for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
             for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):

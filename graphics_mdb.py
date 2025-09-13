@@ -1,9 +1,10 @@
-from DBG_map_frc_0 import _MAP
+from map_frc_0_mdb import _MAP
 from kin import __KIN__
 
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1' # can be any value to get rid of pygame message
 from multiprocessing import Process, Queue, Manager, freeze_support, set_start_method
+# _REQ_QUE : Queue() -> "PriorityQueue()" (Queue with priority sorting in _GEN_MAP() since multiprocessing does not have PriorityQueue)
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
@@ -48,6 +49,7 @@ _ALT_DEC           = int(os.getenv('ALT_DEC'))
 _ALT_FIL           = int(os.getenv('ALT_FIL'))
 _ALT_STA           = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
 _DBG_KIN           = 1
+_CHK_TIM_MAX       = float(os.getenv('CHK_TIM_MAX')) # the maximum amount of time a chunk is allowed to stay in _REQ_QUE (assists with distance-based priority chunk queue rendering)
 
 _DIR_SSM           = './DIR-Screenshots'
 
@@ -477,25 +479,27 @@ def _GEN_MAT_P(FOV, ASPECT, NEAR, FAR):
 
 
 
-def _DIS_3(POS_A, POS_B):
+def _DIS_2(POS_A, POS_B):
     return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2)
 
 def _DIS_3(POS_A, POS_B):
     return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2 + (POS_A[2] - POS_B[2]) ** 2)
 
-_REQ_QUE = Queue()
-_RES_QUE = Queue()
+_REQ_QUE = Queue() # priority queue (distance-based sorting with timeout for old chunks that may be far away)
+_RES_QUE = Queue() # FIFO
 _THD_ARR = []
 _VAO_ARR = {}
 
 def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
     while True:
-        REQ = REQ_QUE.get()
+        DIS, C_POS, SIZ, TIM = REQ_QUE.get() # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
         
-        if REQ is None: # sentinel value to stop thread
+        if C_POS is None: # sentinel value to stop thread
             break
         
-        C_POS, SIZ = REQ
+        # WTF ?
+        # if time.time() - TIM > _CHK_TIM_MAX: # "STALE" CHUNK RELATIVE TO CURRENT TIME
+        #     continue
         
         
         '''
@@ -599,7 +603,7 @@ def _THD_ARR_END():
             pass
     
     for _ in range(_THD_CNT): # sentinel value to stop thread; keep I guess ... even though it works without it
-        _REQ_QUE.put(None)
+        _REQ_QUE.put((0, None, None, None)) # PRIORITY QUEUE NEEDS ALL PARAMS FOR SENTINEL NODE ... SENTINEL NODE HAS 0 (FRONT) PRIORITY
     
     for THD in _THD_ARR:
         THD.terminate()
@@ -630,11 +634,11 @@ def _GEN_MAP(POS, SIZ=_SIZ):
     
     REN_ARR.sort() # sorts by first item in tuple ; maybe also sort by chunks in front of camera: .sort(key=lambda C: (C[1], C[0]))
     
-    for _, C_POS in REN_ARR:
+    for DIS, C_POS in REN_ARR:
         if C_POS not in _VAO_ARR:
-            _REQ_QUE.put((C_POS, SIZ))
+            _REQ_QUE.put((DIS, C_POS, SIZ, time.time())) # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
     
-    ''' maybe reuse something like this later for other purposes
+    ''' maybe reuse something like this later for other purposes (purposes aka far chunk cleanup ... done in main loop)
     REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
     for C_POS in REN_SET_REM:
         VAO, _, VBO, EBO = _VAO_ARR[C_POS]
@@ -933,8 +937,6 @@ def main():
         if _DBG_SEE != 0:
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
         
-        
-        
         CHK_LOW_X = int(POS[0] - _CHK_DIS)
         CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
         CHK_LOW_Y = int(POS[1] - _CHK_DIS)
@@ -944,6 +946,23 @@ def main():
         
         REN_ARR = []
         
+        C_POS_REM_ARR = []
+        ''' no lol
+        for C_POS in _VAO_ARR.keys():
+            if _DIS_3(POS, C_POS) > _CHK_DIS:
+                C_POS_REM_ARR.append(C_POS)
+        
+        for C_POS in C_POS_REM_ARR:
+            VAO, _, VBO, EBO = _VAO_ARR[C_POS]
+            
+            glDeleteVertexArrays(1, [VAO])
+            
+            glDeleteBuffers(1, [VBO])
+            
+            glDeleteBuffers(1, [EBO])
+            
+            del _VAO_ARR[C_POS]
+        '''
         for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
             for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
                 for C_IDX_Z in range(CHK_LOW_Z, CHK_HIG_Z):

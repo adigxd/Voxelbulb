@@ -16,7 +16,7 @@ _ALT_DEC = np.clip(int(os.getenv('ALT_DEC')), 1, 256) # flatten terrain (MAXIMUM
 _MAG_0   = int(os.getenv('MAG_0')) # extra magnitude constant
 
 _FRC_MOD = int(os.getenv('FRC_MOD')) # fractal mode (0 for normal, 1 for inverted 'alpha')
-_FRC_MAG = float(os.getenv('FRC_MAG')) # magnitude to more clearly render the fractal by making coordinates smaller (preferably < 2)
+_FRC_MAG = float(os.getenv('FRC_MAG')) # magnitude to more clearly render the fractal by making coordinates smaller [NOT FOR MANDELBULB -> (preferably < 2)]
 _FRC_LOP_MAX = int(os.getenv('FRC_LOP_MAX')) # how many iterations to check if the function escapes 2
 _FRC_POW = float(os.getenv('FRC_POW')) # power for fractal function exponent
 
