@@ -22,7 +22,7 @@ _FRC_MAG = int(os.getenv('FRC_MAG'))
 ########
 
 _THD_CNT           = np.clip(int(os.getenv('THD_CNT')), 1, os.cpu_count())
-print(f'[CFG] Using {_THD_CNT} threads !')
+print(f'[CFG]  [`THD_CNT`:{_THD_CNT}]=[`Workers`:{_THD_CNT},`Manager`:1,`main`:1]')
 _TIC               = int(os.getenv('TIC'))
 _CHK_TIC           = int(os.getenv('CHK_TIC'))
 _FOV               = float(os.getenv('FOV'))
@@ -497,9 +497,9 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         if C_POS is None: # sentinel value to stop thread
             break
         
-        # WTF ?
-        # if time.time() - TIM > _CHK_TIM_MAX: # "STALE" CHUNK RELATIVE TO CURRENT TIME
-        #     continue
+        # WTF ? ... no wtf; this is fine, deleting from _VAO_ARR in main loop is NOT fine
+        if time.time() - TIM > _CHK_TIM_MAX: # "STALE" CHUNK RELATIVE TO CURRENT TIME
+            continue
         
         
         '''
