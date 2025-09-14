@@ -23,11 +23,18 @@ vec3 __COL(float RAT)
     float RAT_MAX_3 = 0.800;
     float RAT_MAX_4 = 1.000;
     
-	if(RAT <= RAT_MAX_0) { return mix(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 0.0), 5 * RAT); }
-	if(RAT <= RAT_MAX_1) { return mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), 5 * (RAT - RAT_MAX_0)); }
-	if(RAT <= RAT_MAX_2) { return mix(vec3(0.0, 1.0, 0.0), vec3(0.0, 1.0, 1.0), 5 * (RAT - RAT_MAX_1)); }
-	if(RAT <= RAT_MAX_3) { return mix(vec3(0.0, 1.0, 1.0), vec3(0.0, 0.0, 1.0), 5 * (RAT - RAT_MAX_2)); }
-	if(RAT <= RAT_MAX_4) { return mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 0.0, 1.0), 5 * (RAT - RAT_MAX_3)); }
+	vec3 COL_R = vec3(0.0, 0.0, 0.0);
+	vec3 COL_Y = vec3(0.17, 0.17, 0.17);
+	vec3 COL_G = vec3(0.33, 0.33, 0.33);
+	vec3 COL_C = vec3(0.5, 0.5, 0.5);
+	vec3 COL_B = vec3(0.67, 0.67, 0.67);
+	vec3 COL_M = vec3(0.83, 0.83, 0.83);
+	
+	if(RAT <= RAT_MAX_0) { return mix(COL_R, COL_Y, 5 * RAT); }
+	if(RAT <= RAT_MAX_1) { return mix(COL_Y, COL_G, 5 * (RAT - RAT_MAX_0)); }
+	if(RAT <= RAT_MAX_2) { return mix(COL_G, COL_C, 5 * (RAT - RAT_MAX_1)); }
+	if(RAT <= RAT_MAX_3) { return mix(COL_C, COL_B, 5 * (RAT - RAT_MAX_2)); }
+	if(RAT <= RAT_MAX_4) { return mix(COL_B, COL_M, 5 * (RAT - RAT_MAX_3)); }
 	else                 { return vec3(1.0, 1.0, 1.0); } // this should never happen
 }
 

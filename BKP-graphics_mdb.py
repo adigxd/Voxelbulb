@@ -49,8 +49,7 @@ _ALT_DEC           = int(os.getenv('ALT_DEC'))
 _ALT_FIL           = int(os.getenv('ALT_FIL'))
 _ALT_STA           = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
 _DBG_KIN           = 1
-_CHK_TIM_MAX       = float(os.getenv('CHK_TIM_MAX')) # the maximum amount of time a chunk is allowed to stay in _REQ_QUE (assists with distance-based priority chunk queue rendering)
-_REQ_QUE_MAX       = int(os.getenv('REQ_QUE_MAX')) # STOP _REQ_QUE FROM GROWING TOO BIG (moving to new chunks causes explosive growth, so mitigate it)
+_CHK_TIM_MAX       = float(os.getenv('CHK_TIM_MAX')) # OLD, BAD: the maximum amount of time a chunk is allowed to stay in _REQ_QUE (assists with distance-based priority chunk queue rendering)
 
 _DIR_SSM           = './DIR-Screenshots'
 
@@ -486,28 +485,34 @@ def _DIS_2(POS_A, POS_B):
 def _DIS_3(POS_A, POS_B):
     return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2 + (POS_A[2] - POS_B[2]) ** 2)
 
-_REQ_QUE = Queue() # priority queue (distance-based sorting with timeout for old chunks that may be far away)
+_REQ_QUE = Queue() # priority queue (OLD, NO TIMEOUT ANYMORE: distance-based sorting with timeout for old chunks that may be far away)
 _RES_QUE = Queue() # FIFO
 _THD_ARR = []
 _VAO_ARR = {}
 
-def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
+def _THD_FUN(CAM_POS, CHK_OLD_SET, REQ_QUE, RES_QUE):
     while True:
-        DIS, C_POS, SIZ, TIM = REQ_QUE.get() # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
+        # DIS aint actually doing shit here; use C_POS relative to current POS (global variable that can be read by threads)
+        C_POS, SIZ = REQ_QUE.get()
+        #DIS, C_POS, SIZ, TIM = REQ_QUE.get() # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
         
         if C_POS is None: # sentinel value to stop thread
             break
         
-        # WTF ? ... this is not fine
-        #if time.time() - TIM > _CHK_TIM_MAX: # "STALE" CHUNK RELATIVE TO CURRENT TIME
-        #    continue
-        
+        # dont try to use a global pos (race condition), use manager's cam pos
         POS_CAM = (CAM_POS['X'], CAM_POS['Y'], CAM_POS['Z'])
         POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
         
-        if _DIS_3(C_POS, POS) > _CHK_DIS:
-            print(f'[THD]  [`C_POS.skip`:{C_POS}]')
+        if _DIS_3(POS, C_POS) > _CHK_DIS:
+            del CHK_OLD_SET[C_POS] # discard because could be race condition if multiple threads get chunks from REQ_QUE with same C_POS
+            
             continue
+        
+        # WTF ? ... no wtf; this is fine, deleting from _VAO_ARR in main loop is NOT fine
+        # actually yes wtf, this is not fine
+        #if time.time() - TIM > _CHK_TIM_MAX: # "STALE" CHUNK RELATIVE TO CURRENT TIME
+        #    continue
+        
         
         '''
         CAM_C_POS = (CAM_POS['X'] // _SIZ, CAM_POS['Z'] // _SIZ)
@@ -596,9 +601,9 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         
         time.sleep(0.01) # keep to stop super fast checking when queue is potentially empty
 
-def _THD_ARR_BEG(CAM_POS):
+def _THD_ARR_BEG(CAM_POS, CHK_OLD_SET):
     for _ in range(_THD_CNT):
-        THD = Process(target=_THD_FUN, args=(CAM_POS, _REQ_QUE, _RES_QUE), daemon=True)
+        THD = Process(target=_THD_FUN, args=(CAM_POS, CHK_OLD_SET, _REQ_QUE, _RES_QUE), daemon=True)
         THD.start()
         _THD_ARR.append(THD)
 
@@ -610,7 +615,8 @@ def _THD_ARR_END():
             pass
     
     for _ in range(_THD_CNT): # sentinel value to stop thread; keep I guess ... even though it works without it
-        _REQ_QUE.put((0, None, None, None)) # PRIORITY QUEUE NEEDS ALL PARAMS FOR SENTINEL NODE ... SENTINEL NODE HAS 0 (FRONT) PRIORITY
+        _REQ_QUE.put((None, None))
+        #_REQ_QUE.put((0, None, None, None)) # PRIORITY QUEUE NEEDS ALL PARAMS FOR SENTINEL NODE ... SENTINEL NODE HAS 0 (FRONT) PRIORITY
     
     for THD in _THD_ARR:
         THD.terminate()
@@ -621,14 +627,9 @@ def _THD_ARR_END():
 
 
 
-_CHK_OLD_SET = set()
+#_CHK_OLD_SET = set()
 
-def _GEN_MAP(POS, SIZ=_SIZ):
-    
-    # STOP _REQ_QUE FROM GROWING TOO BIG (moving to new chunks causes explosive growth, so mitigate it)
-    #if _REQ_QUE.qsize() > _REQ_QUE_MAX:
-    #    return
-    
+def _GEN_MAP(POS, CHK_OLD_SET, SIZ=_SIZ):
     CHK_LOW_X = int(POS[0] - _CHK_DIS)
     CHK_HIG_X = int(POS[0] + _CHK_DIS + 1)
     CHK_LOW_Y = int(POS[1] - _CHK_DIS)
@@ -645,18 +646,21 @@ def _GEN_MAP(POS, SIZ=_SIZ):
                 
                 DIS = _DIS_3(POS, C_POS)
                 
-                if DIS <= _CHK_DIS and C_POS not in _CHK_OLD_SET:
+                if DIS <= _CHK_DIS and C_POS not in CHK_OLD_SET:
+                #if DIS <= _CHK_DIS and C_POS not in _CHK_OLD_SET:
                     REN_ARR.append((DIS, C_POS))
     
     REN_ARR.sort() # sorts by first item in tuple ; maybe also sort by chunks in front of camera: .sort(key=lambda C: (C[1], C[0]))
     
     for DIS, C_POS in REN_ARR:
         if C_POS not in _VAO_ARR:
-            _CHK_OLD_SET.add(C_POS)
+            CHK_OLD_SET[C_POS] = True
+            #_CHK_OLD_SET.add(C_POS)
             
-            _REQ_QUE.put((DIS, C_POS, SIZ, time.time())) # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
+            _REQ_QUE.put((C_POS, SIZ))
+            #_REQ_QUE.put((DIS, C_POS, SIZ, time.time())) # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
     
-    ''' maybe reuse something like this later for other purposes (purposes aka far chunk cleanup ... done in main loop)
+    ''' maybe reuse something like this later for other purposes (AKA FAR CHUNK CLEANUP ... DONE IN MAIN LOOP ?)
     REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
     for C_POS in REN_SET_REM:
         VAO, _, VBO, EBO = _VAO_ARR[C_POS]
@@ -677,6 +681,7 @@ def main():
     CAM_POS['X'] = 0
     CAM_POS['Y'] = 0
     CAM_POS['Z'] = 0
+    CHK_OLD_SET = MGR.dict() # Manager does not have set()
     
     pygame.init()
     RES = (800, 600)
@@ -796,7 +801,7 @@ def main():
     
     
     
-    _THD_ARR_BEG(CAM_POS)
+    _THD_ARR_BEG(CAM_POS, CHK_OLD_SET)
     
     
     
@@ -829,6 +834,7 @@ def main():
             print(f"       [`_RES_QUE.size`:{_RES_QUE.qsize()}]")
             print(f"       [`_VAO_ARR.size`:{len(_VAO_ARR)}]")
             print(f"       [`_MAP.CHK_ARR.size`:{len(_MAP.CHK_ARR)}]")
+            print(f"       [`CHK_OLD_SET.size`:{len(CHK_OLD_SET)}]")
         
         for E in pygame.event.get():
             if E.type == pygame.QUIT or (E.type == pygame.KEYDOWN and E.key == pygame.K_RSHIFT):
@@ -881,40 +887,14 @@ def main():
         
         
         
-        POS_CAM = (camera.pos[0], camera.pos[1], camera.pos[2])
-        POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
-        
-        if POS_PRE != POS:
-            POS_DBG = tuple(f"{X / _FRC_MAG:.6f}" for X in POS)
-            print(f"[DBG]  [`POS`:{POS_DBG}]")
-            POS_PRE = POS
-            _GEN_MAP(POS_PRE, SIZ=_SIZ)
-        
-        
-        
-        CHK_TIC_CNT = 0
-        
-        while not _RES_QUE.empty() and CHK_TIC_CNT < CHK_TIC_MAX:
-            try:
-                C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR = _RES_QUE.get_nowait()
-                _MAP._CHK_ADD_MAN(C_POS, CHK)
-                
-                #T_A = time.perf_counter()
-                VAO, VBO, EBO = _BUF(GEN_VER_ARR, GEN_IDX_ARR)
-                _VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
-                #print(f'RES_QUE >> {C_POS}')
-                #T_B = time.perf_counter()
-                #print(f'[MAI] {T_B - T_A:.8f} s')
-                
-                CHK_TIC_CNT += 1
-            except Exception:
-                break
-        
-        
-        
         # Get mouse movement
         mouse_rel = pygame.mouse.get_rel()
         keys = pygame.key.get_pressed()
+        
+        
+        
+        POS_CAM = (camera.pos[0], camera.pos[1], camera.pos[2])
+        POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
         
         
         
@@ -936,9 +916,37 @@ def main():
         camera.update(keys, mouse_rel, KIN)
         
         # so everything can know where the player currently is
-        # CAM_POS['X'] = camera.pos[0]
-        # CAM_POS['Y'] = camera.pos[1]
-        # CAM_POS['Z'] = camera.pos[2]
+        CAM_POS['X'] = camera.pos[0]
+        CAM_POS['Y'] = camera.pos[1]
+        CAM_POS['Z'] = camera.pos[2]
+        
+        
+        
+        if POS_PRE != POS:
+            POS_DBG = tuple(f"{X / _FRC_MAG:.6f}" for X in POS)
+            print(f"[DBG]  [`POS`:{POS_DBG}]")
+            POS_PRE = POS
+            _GEN_MAP(POS_PRE, CHK_OLD_SET, SIZ=_SIZ)
+        
+        
+        
+        CHK_TIC_CNT = 0
+        
+        while not _RES_QUE.empty() and CHK_TIC_CNT < CHK_TIC_MAX:
+            try:
+                C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR = _RES_QUE.get_nowait()
+                _MAP._CHK_ADD_MAN(C_POS, CHK)
+                
+                #T_A = time.perf_counter()
+                VAO, VBO, EBO = _BUF(GEN_VER_ARR, GEN_IDX_ARR)
+                _VAO_ARR[C_POS] = (VAO, len(GEN_IDX_ARR), VBO, EBO)
+                #print(f'RES_QUE >> {C_POS}')
+                #T_B = time.perf_counter()
+                #print(f'[MAI] {T_B - T_A:.8f} s')
+                
+                CHK_TIC_CNT += 1
+            except Exception:
+                break
         
         
         
@@ -995,7 +1003,7 @@ def main():
                 for C_IDX_Z in range(CHK_LOW_Z, CHK_HIG_Z):
                     C_POS = (C_IDX_X, C_IDX_Y, C_IDX_Z)
                     
-                    if _DIS_3(POS, C_POS) > _CHK_DIS:
+                    if _DIS_3(POS, C_POS) > _CHK_DIS: # I WILL NOT RENDER IT, BUT I DID NOT STOP IT FROM BEING GENERATED
                         continue
                     
                     if C_POS in _VAO_ARR: # need ?
