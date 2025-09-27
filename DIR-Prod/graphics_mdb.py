@@ -832,7 +832,7 @@ def main():
         LOP_CNT += 1
         
         if LOP_CNT % 0x100 == 0:
-            debug.__DBG(debug._TAG_DBG, ['LOP_CNT', '_REQ_QUE size', '_RES_QUE size', '_VAO_ARR size', '_MAP.CHK_ARR size'], [LOP_CNT, _REQ_QUE.qsize(), _REQ_QUE.qsize(), len(_VAO_ARR), len(_MAP.CHK_ARR)])
+            debug.__DBG(debug._TAG_DBG, ['LOP_CNT', '_REQ_QUE size', '_RES_QUE size', '_VAO_ARR size', '_MAP.CHK_ARR size'], [LOP_CNT, _REQ_QUE.qsize(), _RES_QUE.qsize(), len(_VAO_ARR), len(_MAP.CHK_ARR)])
         
         for E in pygame.event.get():
             if E.type == pygame.QUIT or (E.type == pygame.KEYDOWN and E.key == pygame.K_RSHIFT):
