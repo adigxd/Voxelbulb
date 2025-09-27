@@ -54,7 +54,11 @@ _ALT_FIL           = int(os.getenv('ALT_FIL'))
 _ALT_STA           = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
 _DBG_KIN           = np.clip(int(os.getenv('DBG_KIN')), 0, 1) # fly ?
 _CHK_TIM_MAX       = float(os.getenv('CHK_TIM_MAX')) # the maximum amount of time a chunk is allowed to stay in _REQ_QUE (assists with distance-based priority chunk queue rendering)
-#_REQ_QUE_MAX       = int(os.getenv('REQ_QUE_MAX')) # STOP _REQ_QUE FROM GROWING TOO BIG (moving to new chunks causes explosive growth, so mitigate it)
+
+_LIT_POS           = tuple(map(float, os.getenv('LIT_POS').split(',')))
+_LIT_RAD           = float(os.getenv('LIT_RAD'))
+_LIT_INT           = float(os.getenv('LIT_INT'))
+_LIT_COL           = tuple(map(float, os.getenv('LIT_COL').split(',')))
 
 _DIR_SSM           = './DIR-Screenshots'
 
@@ -267,17 +271,23 @@ def _BUF(vertex_data, index_data):
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo)
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_data.nbytes, index_data, GL_STATIC_DRAW)
     
+    VER_DAT_SIZ = 8 * vertex_data.itemsize # 3 pos + 1 frc_col + 1 frc_col_avg + 3 normal = 8 floats
+    
     # Position attribute (location = 0) - 3 floats
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * vertex_data.itemsize, ctypes.c_void_p(0))
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, VER_DAT_SIZ, ctypes.c_void_p(0))
     glEnableVertexAttribArray(0)
     
     # FRC_COL attribute (location = 1) - 1 float
-    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 5 * vertex_data.itemsize, ctypes.c_void_p(3 * vertex_data.itemsize))
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, VER_DAT_SIZ, ctypes.c_void_p(3 * vertex_data.itemsize))
     glEnableVertexAttribArray(1)
     
     # FRC_COL_CHK_AVG attribute (location = 2) - 1 float
-    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 5 * vertex_data.itemsize, ctypes.c_void_p(4 * vertex_data.itemsize))
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, VER_DAT_SIZ, ctypes.c_void_p(4 * vertex_data.itemsize))
     glEnableVertexAttribArray(2)
+    
+    # NML (location = 3)
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, VER_DAT_SIZ, ctypes.c_void_p(5 * vertex_data.itemsize))
+    glEnableVertexAttribArray(3)
     
     # Unbind VAO to avoid accidental modification
     glBindVertexArray(0)
@@ -374,7 +384,7 @@ def _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P):
     glUniformMatrix4fv(LOC_V, 1, GL_TRUE, MAT_V)
     glUniformMatrix4fv(LOC_P, 1, GL_TRUE, MAT_P)
 
-def _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC):
+def _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC, LIT_POS=_LIT_POS, LIT_RAD=_LIT_RAD, LIT_INT=_LIT_INT, LIT_COL=_LIT_COL):
     glUseProgram(PRO_SHA)
     
     LOC_COL     = glGetUniformLocation(PRO_SHA, 'COL_DEF')
@@ -390,6 +400,16 @@ def _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ
     glUniform1f(LOC_SIZ, SIZ)
     glUniform1f(LOC_ALT_MIN, ALT_MIN)
     glUniform1f(LOC_ALT_MAX, ALT_MAX)
+    
+    LOC_LIT_POS = glGetUniformLocation(PRO_SHA, 'LIT_POS')
+    LOC_LIT_RAD = glGetUniformLocation(PRO_SHA, 'LIT_RAD')
+    LOC_LIT_INT = glGetUniformLocation(PRO_SHA, 'LIT_INT')
+    LOC_LIT_COL = glGetUniformLocation(PRO_SHA, 'LIT_COL')
+    
+    glUniform3fv(LOC_LIT_POS, 1, LIT_POS)
+    glUniform1f(LOC_LIT_RAD, LIT_RAD)
+    glUniform1f(LOC_LIT_INT, LIT_INT)
+    glUniform3fv(LOC_LIT_COL, 1, LIT_COL)
 
 
 
@@ -573,24 +593,64 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
                         
                         FRC_COL = CHK[Z, X, Y]
                         
-                        V_ARR = [
-                            (X_FIX    , Y_FIX    , Z_FIX    , FRC_COL, FRC_COL_CHK_AVG),
-                            (X_FIX + 1, Y_FIX    , Z_FIX    , FRC_COL, FRC_COL_CHK_AVG),
-                            (X_FIX + 1, Y_FIX    , Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG),
-                            (X_FIX    , Y_FIX    , Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG),
-                            (X_FIX    , Y_FIX + 1, Z_FIX    , FRC_COL, FRC_COL_CHK_AVG),
-                            (X_FIX + 1, Y_FIX + 1, Z_FIX    , FRC_COL, FRC_COL_CHK_AVG),
-                            (X_FIX + 1, Y_FIX + 1, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG),
-                            (X_FIX    , Y_FIX + 1, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG)
+                        # Define cube vertices with normals (x, y, z, frc_col, frc_col_avg, nx, ny, nz)
+                        # Bottom face (normal: 0, -1, 0)
+                        V_BOTTOM = [
+                            (X_FIX    , Y_FIX, Z_FIX    , FRC_COL, FRC_COL_CHK_AVG, 0, -1, 0),
+                            (X_FIX + 1, Y_FIX, Z_FIX    , FRC_COL, FRC_COL_CHK_AVG, 0, -1, 0),
+                            (X_FIX + 1, Y_FIX, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 0, -1, 0),
+                            (X_FIX    , Y_FIX, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 0, -1, 0)
                         ]
                         
+                        # Top face (normal: 0, 1, 0)
+                        V_TOP = [
+                            (X_FIX    , Y_FIX + 1, Z_FIX    , FRC_COL, FRC_COL_CHK_AVG, 0, 1, 0),
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX    , FRC_COL, FRC_COL_CHK_AVG, 0, 1, 0),
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 0, 1, 0),
+                            (X_FIX    , Y_FIX + 1, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 0, 1, 0)
+                        ]
+                        
+                        # Front face (normal: 0, 0, -1)
+                        V_FRONT = [
+                            (X_FIX    , Y_FIX    , Z_FIX, FRC_COL, FRC_COL_CHK_AVG, 0, 0, -1),
+                            (X_FIX + 1, Y_FIX    , Z_FIX, FRC_COL, FRC_COL_CHK_AVG, 0, 0, -1),
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX, FRC_COL, FRC_COL_CHK_AVG, 0, 0, -1),
+                            (X_FIX    , Y_FIX + 1, Z_FIX, FRC_COL, FRC_COL_CHK_AVG, 0, 0, -1)
+                        ]
+                        
+                        # Back face (normal: 0, 0, 1)
+                        V_BACK = [
+                            (X_FIX    , Y_FIX    , Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 0, 0, 1),
+                            (X_FIX + 1, Y_FIX    , Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 0, 0, 1),
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 0, 0, 1),
+                            (X_FIX    , Y_FIX + 1, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 0, 0, 1)
+                        ]
+                        
+                        # Left face (normal: -1, 0, 0)
+                        V_LEFT = [
+                            (X_FIX, Y_FIX    , Z_FIX    , FRC_COL, FRC_COL_CHK_AVG, -1, 0, 0),
+                            (X_FIX, Y_FIX    , Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, -1, 0, 0),
+                            (X_FIX, Y_FIX + 1, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, -1, 0, 0),
+                            (X_FIX, Y_FIX + 1, Z_FIX    , FRC_COL, FRC_COL_CHK_AVG, -1, 0, 0)
+                        ]
+                        
+                        # Right face (normal: 1, 0, 0)
+                        V_RIGHT = [
+                            (X_FIX + 1, Y_FIX    , Z_FIX    , FRC_COL, FRC_COL_CHK_AVG, 1, 0, 0),
+                            (X_FIX + 1, Y_FIX    , Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 1, 0, 0),
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX + 1, FRC_COL, FRC_COL_CHK_AVG, 1, 0, 0),
+                            (X_FIX + 1, Y_FIX + 1, Z_FIX    , FRC_COL, FRC_COL_CHK_AVG, 1, 0, 0)
+                        ]
+                        
+                        V_ARR = V_BOTTOM + V_TOP + V_FRONT + V_BACK + V_LEFT + V_RIGHT
+                        
                         F_ARR = [
-                            (0, 1, 2), (0, 2, 3), # D
-                            (4, 5, 6), (4, 6, 7), # U
-                            (0, 1, 5), (0, 5, 4), # F
-                            (2, 3, 7), (2, 7, 6), # B
-                            (0, 3, 7), (0, 7, 4), # L
-                            (1, 2, 6), (1, 6, 5)  # R
+                            (0, 1, 2), (0, 2, 3),      # Bottom
+                            (4, 5, 6), (4, 6, 7),      # Top
+                            (8, 9, 10), (8, 10, 11),   # Front
+                            (12, 13, 14), (12, 14, 15),# Back
+                            (16, 17, 18), (16, 18, 19),# Left
+                            (20, 21, 22), (20, 22, 23) # Right
                         ]
                         
                         IDX = len(GEN_VER_ARR)    # Get the current length of the vertex array
@@ -975,7 +1035,12 @@ def main():
         
         _UNI_MAT(PRO_SHA, MAT_M, MAT_V, MAT_P)
         
-        _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC)
+        LIT_POS_0 = (camera.pos[0], camera.pos[1], camera.pos[2]) # use this for dynamic based on player pos ... SMTH MESSED UP camera.pos ... SHOWS LARGE VALUES IN DEBUG SO DON'T USE IT
+        
+        if LOP_CNT % 0x100 == 0:
+            debug.__DBG(debug._TAG_DBG, ['LIT_POS_0'], [LIT_POS_0])
+        
+        _UNI_ETC(PRO_SHA, COL=_COL_DEF, COL_MIN=_COL_MIN, COL_MAX=_COL_MAX, SIZ=_SIZ, ALT_MIN=_ALT_MIN, ALT_MAX=_ALT_DEC, LIT_POS=LIT_POS_0, LIT_RAD=_LIT_RAD, LIT_INT=_LIT_INT, LIT_COL=_LIT_COL)
         
         # Apply camera transformation
         camera.look()
