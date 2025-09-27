@@ -1060,9 +1060,10 @@ def main():
         REN_ARR = []
         
         C_POS_REM_ARR = []
-        ''' no lol
+        ''' no lol ... YES lol
+        '''
         for C_POS in _VAO_ARR.keys():
-            if _DIS_3(POS, C_POS) > _CHK_DIS:
+            if _DIS_3(POS, C_POS) > _CHK_DIS + 2: # +2 for hysteresis (whatever that means)
                 C_POS_REM_ARR.append(C_POS)
         
         for C_POS in C_POS_REM_ARR:
@@ -1075,6 +1076,9 @@ def main():
             glDeleteBuffers(1, [EBO])
             
             del _VAO_ARR[C_POS]
+            
+            _CHK_OLD_SET.discard(C_POS)  # Also remove from old set
+        '''
         '''
         for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
             for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
