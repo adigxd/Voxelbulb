@@ -1,0 +1,18 @@
+NEW:
+
+- ...
+  > colors for bulbs' voxels should be scaled based on actual min / max experienced for spectrum
+
+https://claude.ai/share/f6d8fb64-04a9-466f-9f14-45fcdaa00e2d
+
+OLD:
+
+- URGENT
+  > FIX CHUNK SKIP METHOD
+  > EXPAND CHUNK FUNCTIONALITY TO INCLUDE MORE DATA PER X, Z COORDINATE
+    - MULTIPLE DISPLACED VOXELS IN A COLUMN
+    - DATA OF EACH VOXEL (ESCAPE VELOCITY OF FRACTAL FUNCTION)
+
+- more unique terrain generation
+  > biomes for non-fractal maps
+  > voxel-data dependent fragment shaders (cool for 3d fragments)

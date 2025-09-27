@@ -41,7 +41,7 @@ class __CHK__:
         self.POS = POS
         self.IMG = None
     
-    def _mandelbulb(self, x, y, z):
+    def _MDB(self, x, y, z):
         scale = _FRC_MAG
         x0, y0, z0 = x/scale, y/scale, z/scale
         
@@ -89,7 +89,7 @@ class __CHK__:
                     if X_FIX > 2.0 or Y_FIX > 2.0 or Z_FIX > 2.0:
                         IMG[Z, X, Y] = -1.0
                     
-                    IMG[Z, X, Y] = self._mandelbulb(X_FIX, Y_FIX, Z_FIX)
+                    IMG[Z, X, Y] = self._MDB(X_FIX, Y_FIX, Z_FIX)
         
         return IMG
     

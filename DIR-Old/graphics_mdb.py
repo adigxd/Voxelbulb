@@ -1,11 +1,11 @@
 from map_frc_0_mdb import _MAP
 from kin import __KIN__
-#from debug import debug__DBG
+from debug import debug__DBG
 
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1' # can be any value to get rid of pygame message
 from multiprocessing import Process, Queue, Manager, freeze_support, set_start_method
-# ignore this: _REQ_QUE : Queue() -> "PriorityQueue()" (Queue with priority sorting in _GEN_MAP() since multiprocessing does not have PriorityQueue)
+# _REQ_QUE : Queue() -> "PriorityQueue()" (Queue with priority sorting in _GEN_MAP() since multiprocessing does not have PriorityQueue)
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
@@ -15,7 +15,6 @@ import random
 import numpy as np
 import math
 from dotenv import load_dotenv
-import debug
 
 load_dotenv()
 
@@ -24,7 +23,8 @@ _FRC_MAG = int(os.getenv('FRC_MAG'))
 ########
 
 _THD_CNT           = np.clip(int(os.getenv('THD_CNT')), 1, os.cpu_count())
-debug.__DBG(debug._TAG_CFG, ['THD_CNT'], [_THD_CNT])
+print(f'[CFG]  [`THD_CNT`:{_THD_CNT}]'
+print(f'[CFG]  [`Workers`:{_THD_CNT},`Manager`:1,`main`:1]')
 _TIC               = int(os.getenv('TIC'))
 _CHK_TIC           = int(os.getenv('CHK_TIC'))
 _FOV               = float(os.getenv('FOV'))
@@ -52,7 +52,7 @@ _ALT_FIL           = int(os.getenv('ALT_FIL'))
 _ALT_STA           = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
 _DBG_KIN           = np.clip(int(os.getenv('DBG_KIN')), 0, 1) # fly ?
 _CHK_TIM_MAX       = float(os.getenv('CHK_TIM_MAX')) # the maximum amount of time a chunk is allowed to stay in _REQ_QUE (assists with distance-based priority chunk queue rendering)
-#_REQ_QUE_MAX       = int(os.getenv('REQ_QUE_MAX')) # STOP _REQ_QUE FROM GROWING TOO BIG (moving to new chunks causes explosive growth, so mitigate it)
+_REQ_QUE_MAX       = int(os.getenv('REQ_QUE_MAX')) # STOP _REQ_QUE FROM GROWING TOO BIG (moving to new chunks causes explosive growth, so mitigate it)
 
 _DIR_SSM           = './DIR-Screenshots'
 
@@ -314,7 +314,7 @@ def _SHA_GEN(PTH):
             SHA_SRC = F.read()
         return SHA_SRC
     except Exception as E:
-        debug.__DBG(debug._TAG_ERR, ['_SHA_GEN'], [PTH])
+        print(f'ERR >> _SHA_GEN >> cannot find {PTH}')
         return None
 
 def _SHA_COM(SHA_SRC, SHA_TYP):
@@ -324,7 +324,7 @@ def _SHA_COM(SHA_SRC, SHA_TYP):
 
     if not glGetShaderiv(SHA, GL_COMPILE_STATUS):
         ERR = glGetShaderInfoLog(SHA).decode()
-        debug.__DBG(debug._TAG_ERR, ['_SHA_COM', '_SHA_COM'], [SHA_TYP, ERR])
+        print(f'ERR >> _SHA_COM ({SHA_TYP}) >> {ERR}')
         return None
 
     return SHA
@@ -346,7 +346,7 @@ def _SHA_PRO(SHA_SRC_V, SHA_SRC_F):
         glDeleteProgram(PRO_SHA)
         
         ERR = glGetProgramInfoLog(PRO_SHA).decode()
-        debug.__DBG(debug._TAG_ERR, ['_SHA_PRO'], [ERR])
+        print(f'ERR >> _SHA_PRO >> {ERR}')
         
         return None
     
@@ -488,16 +488,14 @@ def _DIS_2(POS_A, POS_B):
 def _DIS_3(POS_A, POS_B):
     return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2 + (POS_A[2] - POS_B[2]) ** 2)
 
-_REQ_QUE = Queue() # FIFO (thread skips chunks out-of-range)
+_REQ_QUE = Queue() # priority queue (distance-based sorting with timeout for old chunks that may be far away)
 _RES_QUE = Queue() # FIFO
 _THD_ARR = []
 _VAO_ARR = {}
 
 def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
     while True:
-        # DIS aint actually doing shit here; use C_POS relative to current POS (global variable that can be read by threads)
-        C_POS, SIZ = REQ_QUE.get()
-        #DIS, C_POS, SIZ, TIM = REQ_QUE.get() # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
+        DIS, C_POS, SIZ, TIM = REQ_QUE.get() # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
         
         if C_POS is None: # sentinel value to stop thread
             break
@@ -510,7 +508,7 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
         
         if _DIS_3(C_POS, POS) > _CHK_DIS:
-            debug.__DBG(debug._TAG_THD, ['C_POS skip'], [C_POS])
+            print(f'[THD]  [`C_POS.skip`:{C_POS}]')
             continue
         
         '''
@@ -592,7 +590,7 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         GEN_VER_ARR = np.array(GEN_VER_ARR, dtype=np.float32)
         GEN_IDX_ARR = np.array(GEN_IDX_ARR, dtype=np.uint32)
         
-        debug.__DBG(debug._TAG_THD, ['C_POS'], [C_POS])
+        # print(f'[THD]  [`C_POS`:{C_POS}]')
         
         RES_QUE.put((C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR))
         
@@ -614,8 +612,7 @@ def _THD_ARR_END():
             pass
     
     for _ in range(_THD_CNT): # sentinel value to stop thread; keep I guess ... even though it works without it
-        _REQ_QUE.put((None, None))
-        #_REQ_QUE.put((0, None, None, None)) # PRIORITY QUEUE NEEDS ALL PARAMS FOR SENTINEL NODE ... SENTINEL NODE HAS 0 (FRONT) PRIORITY
+        _REQ_QUE.put((0, None, None, None)) # PRIORITY QUEUE NEEDS ALL PARAMS FOR SENTINEL NODE ... SENTINEL NODE HAS 0 (FRONT) PRIORITY
     
     for THD in _THD_ARR:
         THD.terminate()
@@ -657,11 +654,9 @@ def _GEN_MAP(POS, SIZ=_SIZ):
     
     for DIS, C_POS in REN_ARR:
         if C_POS not in _VAO_ARR:
-            #CHK_OLD_SET[C_POS] = True
             _CHK_OLD_SET.add(C_POS)
             
-            _REQ_QUE.put((C_POS, SIZ))
-            #_REQ_QUE.put((DIS, C_POS, SIZ, time.time())) # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
+            _REQ_QUE.put((DIS, C_POS, SIZ, time.time())) # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
     
     ''' maybe reuse something like this later for other purposes (purposes aka far chunk cleanup ... done in main loop)
     REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
@@ -684,7 +679,6 @@ def main():
     CAM_POS['X'] = 0
     CAM_POS['Y'] = 0
     CAM_POS['Z'] = 0
-    # CHK_OLD_SET = MGR.dict() # Manager does not have set() # causes freezing when using
     
     pygame.init()
     RES = (800, 600)
@@ -723,7 +717,7 @@ def main():
     
     # Check if frame buffer is complete
     if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
-        debug.__DBG(debug._TAG_ERR, ['ERR'], ['GL_FRAMEBUFFER'])
+        print("ERR >> GL_FRAMEBUFFER")
         
         pygame.quit()
         
@@ -832,7 +826,11 @@ def main():
         LOP_CNT += 1
         
         if LOP_CNT % 0x100 == 0:
-            debug.__DBG(debug._TAG_DBG, ['LOP_CNT', '_REQ_QUE size', '_RES_QUE size', '_VAO_ARR size', '_MAP.CHK_ARR size'], [LOP_CNT, _REQ_QUE.qsize(), _RES_QUE.qsize(), len(_VAO_ARR), len(_MAP.CHK_ARR)])
+            print(f"[DBG]  [`LOP_CNT`:{LOP_CNT}]")
+            print(f"       [`_REQ_QUE.size`:{_REQ_QUE.qsize()}]")
+            print(f"       [`_RES_QUE.size`:{_RES_QUE.qsize()}]")
+            print(f"       [`_VAO_ARR.size`:{len(_VAO_ARR)}]")
+            print(f"       [`_MAP.CHK_ARR.size`:{len(_MAP.CHK_ARR)}]")
         
         for E in pygame.event.get():
             if E.type == pygame.QUIT or (E.type == pygame.KEYDOWN and E.key == pygame.K_RSHIFT):
@@ -881,48 +879,16 @@ def main():
                 
                 pygame.image.save(SUR, PTH_SSM)
                 
-                debug.__DBG(debug._TAG_DBG, ['PTH_SSM'], [PTH_SSM])
-        
-        
-        
-        # Get mouse movement
-        mouse_rel = pygame.mouse.get_rel()
-        keys = pygame.key.get_pressed()
+                print(f'[SSM]  [`PTH_SSM`:{PTH_SSM}]')
         
         
         
         POS_CAM = (camera.pos[0], camera.pos[1], camera.pos[2])
         POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
         
-        
-        
-        if _DBG_KIN == 0:
-            JMP_YES = keys[pygame.K_SPACE]
-            GLD_YES = keys[pygame.K_LSHIFT]
-            
-            KIN_ALT_MIN = None
-            
-            if _MAP.CHK_ARR.get(POS) is not None: KIN_ALT_MIN = (_MAP.CHK_ARR[POS])[int(POS_CAM[2] % _SIZ), int(POS_CAM[0] % _SIZ), int(POS_CAM[1] % _SIZ)] # Z, X, Y (?)
-            
-            else:                                 KIN_ALT_MIN = _ALT_DEC
-            
-            KIN._UPD(int(KIN_ALT_MIN), JMP_YES, GLD_YES)
-        
-        
-        
-        # Update camera
-        camera.update(keys, mouse_rel, KIN)
-        
-        # so everything can know where the player currently is
-        CAM_POS['X'] = camera.pos[0]
-        CAM_POS['Y'] = camera.pos[1]
-        CAM_POS['Z'] = camera.pos[2]
-        
-        
-        
         if POS_PRE != POS:
             POS_DBG = tuple(f"{X / _FRC_MAG:.6f}" for X in POS)
-            debug.__DBG(debug._TAG_DBG, ['POS'], [POS_DBG])
+            print(f"[DBG]  [`POS`:{POS_DBG}]")
             POS_PRE = POS
             _GEN_MAP(POS_PRE, SIZ=_SIZ)
         
@@ -945,6 +911,36 @@ def main():
                 CHK_TIC_CNT += 1
             except Exception:
                 break
+        
+        
+        
+        # Get mouse movement
+        mouse_rel = pygame.mouse.get_rel()
+        keys = pygame.key.get_pressed()
+        
+        
+        
+        if _DBG_KIN == 0:
+            JMP_YES = keys[pygame.K_SPACE]
+            GLD_YES = keys[pygame.K_LSHIFT]
+            
+            KIN_ALT_MIN = None
+            
+            if _MAP.CHK_ARR.get(POS) is not None: KIN_ALT_MIN = (_MAP.CHK_ARR[POS])[int(POS_CAM[1] % _SIZ), int(POS_CAM[0] % _SIZ)]
+            
+            else:                                 KIN_ALT_MIN = _ALT_DEC
+            
+            KIN._UPD(int(KIN_ALT_MIN), JMP_YES, GLD_YES)
+        
+        
+        
+        # Update camera
+        camera.update(keys, mouse_rel, KIN)
+        
+        # so everything can know where the player currently is
+        # CAM_POS['X'] = camera.pos[0]
+        # CAM_POS['Y'] = camera.pos[1]
+        # CAM_POS['Z'] = camera.pos[2]
         
         
         
