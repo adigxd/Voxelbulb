@@ -54,6 +54,7 @@ _ALT_FIL           = int(os.getenv('ALT_FIL'))
 _ALT_STA           = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
 _DBG_KIN           = np.clip(int(os.getenv('DBG_KIN')), 0, 1) # fly ?
 _CHK_TIM_MAX       = float(os.getenv('CHK_TIM_MAX')) # the maximum amount of time a chunk is allowed to stay in _REQ_QUE (assists with distance-based priority chunk queue rendering)
+_VAO_ARR_CNT_MAX   = np.clip(int(os.getenv('CHK_DIS')), 0, _CHK_DIS ** 3)
 
 _LIT_POS           = tuple(map(float, os.getenv('LIT_POS').split(',')))
 _LIT_RAD           = float(os.getenv('LIT_RAD'))
@@ -551,8 +552,9 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         '''
         
         
-        _MAP._CHK_ADD(C_POS)
-        CHK = _MAP.CHK_ARR[C_POS]
+        #_MAP._CHK_ADD(C_POS)
+        #CHK = _MAP.CHK_ARR[C_POS]
+        CHK = _MAP._CHK_GET(C_POS)
         
         GEN_VER_ARR = []
         GEN_IDX_ARR = []
@@ -907,7 +909,8 @@ def main():
         LOP_CNT += 1
         
         if LOP_CNT % 0x100 == 0:
-            debug.__DBG(debug._TAG_DBG, ['LOP_CNT', '_REQ_QUE size', '_RES_QUE size', '_VAO_ARR size', '_MAP.CHK_ARR size'], [LOP_CNT, _REQ_QUE.qsize(), _RES_QUE.qsize(), len(_VAO_ARR), len(_MAP.CHK_ARR)])
+            #debug.__DBG(debug._TAG_DBG, ['LOP_CNT', '_REQ_QUE size', '_RES_QUE size', '_VAO_ARR size', '_MAP.CHK_ARR size'], [LOP_CNT, _REQ_QUE.qsize(), _RES_QUE.qsize(), len(_VAO_ARR), len(_MAP.CHK_ARR)])
+            debug.__DBG(debug._TAG_DBG, ['LOP_CNT', '_REQ_QUE size', '_RES_QUE size', '_VAO_ARR size'], [LOP_CNT, _REQ_QUE.qsize(), _RES_QUE.qsize(), len(_VAO_ARR)])
         
         for E in pygame.event.get():
             if E.type == pygame.QUIT or (E.type == pygame.KEYDOWN and E.key == pygame.K_RSHIFT):
@@ -970,7 +973,7 @@ def main():
         POS = (POS_CAM[0] // _SIZ, POS_CAM[1] // _SIZ, POS_CAM[2] // _SIZ)
         
         
-        
+        ''' some fucked up shit, rework this collision detection
         if _DBG_KIN == 0:
             JMP_YES = keys[pygame.K_SPACE]
             GLD_YES = keys[pygame.K_LSHIFT]
@@ -982,7 +985,7 @@ def main():
             else:                                 KIN_ALT_MIN = _ALT_DEC
             
             KIN._UPD(int(KIN_ALT_MIN), JMP_YES, GLD_YES)
-        
+        '''
         
         
         # Update camera
@@ -1008,7 +1011,7 @@ def main():
         while not _RES_QUE.empty() and CHK_TIC_CNT < CHK_TIC_MAX:
             try:
                 C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR = _RES_QUE.get_nowait()
-                _MAP._CHK_ADD_MAN(C_POS, CHK)
+                #_MAP._CHK_ADD_MAN(C_POS, CHK) # what is this for exactly?
                 
                 #T_A = time.perf_counter()
                 VAO, VBO, EBO = _BUF(GEN_VER_ARR, GEN_IDX_ARR)
@@ -1059,27 +1062,39 @@ def main():
         
         REN_ARR = []
         
-        C_POS_REM_ARR = []
-        ''' no lol ... YES lol
-        '''
-        for C_POS in _VAO_ARR.keys():
-            if _DIS_3(POS, C_POS) > _CHK_DIS + 2: # +2 for hysteresis (whatever that means)
-                C_POS_REM_ARR.append(C_POS)
         
-        for C_POS in C_POS_REM_ARR:
-            VAO, _, VBO, EBO = _VAO_ARR[C_POS]
+        
+        if len(_VAO_ARR) > _VAO_ARR_CNT_MAX:
+            C_POS_REM_ARR = []
             
-            glDeleteVertexArrays(1, [VAO])
+            # first all chunks out of render, then chunks within render starting from farthest
             
-            glDeleteBuffers(1, [VBO])
+            #for D in range(_CHK_DIS, 0):
+                #
             
-            glDeleteBuffers(1, [EBO])
+            for C_POS in _VAO_ARR.keys():
+                if _DIS_3(POS, C_POS) > _CHK_DIS: #+ 2: # +2 for hysteresis (whatever that means)
+                    C_POS_REM_ARR.append(C_POS)
             
-            del _VAO_ARR[C_POS]
-            
-            _CHK_OLD_SET.discard(C_POS)  # Also remove from old set
-        '''
-        '''
+            for C_POS in C_POS_REM_ARR:
+                VAO, _, VBO, EBO = _VAO_ARR[C_POS]
+                
+                glDeleteVertexArrays(1, [VAO])
+                
+                glDeleteBuffers(1, [VBO])
+                
+                glDeleteBuffers(1, [EBO])
+                
+                del _VAO_ARR[C_POS]
+                
+                debug.__DBG(debug._TAG_DBG, ['_VAO_ARR', '@'], ['del', C_POS])
+                
+                _CHK_OLD_SET.discard(C_POS) # also remove from old chunk set
+                
+                # _MAP.CHK_DEL_MAN(C_POS) # also remove from chunk map arr
+        
+        
+        
         for C_IDX_X in range(CHK_LOW_X, CHK_HIG_X):
             for C_IDX_Y in range(CHK_LOW_Y, CHK_HIG_Y):
                 for C_IDX_Z in range(CHK_LOW_Z, CHK_HIG_Z):

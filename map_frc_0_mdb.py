@@ -29,11 +29,21 @@ class __MAP__:
     
     def _CHK_ADD(self, POS):
         CHK = __CHK__(POS, _SIZ)
+        
         CHK._GEN()
+        
         self.CHK_ARR[POS] = CHK.IMG
     
     def _CHK_ADD_MAN(self, POS, CHK_IMG): # manual chunk add
         self.CHK_ARR[POS] = CHK_IMG
+    
+    def _CHK_DEL_MAN(self, POS): # manual chunk delet
+        del CHK_ARR[POS]
+    
+    def _CHK_GET(self, POS):
+        CHK = __CHK__(POS, _SIZ)
+        
+        return CHK._GEN()
 
 class __CHK__:
     def __init__(self, POS, SIZ=16):
