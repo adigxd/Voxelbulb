@@ -54,7 +54,7 @@ _ALT_FIL           = int(os.getenv('ALT_FIL'))
 _ALT_STA           = _ALT_DEC * float(os.getenv('ALT_STA_MAG')) # ALT_STA_MAG (.env) * _ALT_DEC = starting altitude
 _DBG_KIN           = np.clip(int(os.getenv('DBG_KIN')), 0, 1) # fly ?
 _CHK_TIM_MAX       = float(os.getenv('CHK_TIM_MAX')) # the maximum amount of time a chunk is allowed to stay in _REQ_QUE (assists with distance-based priority chunk queue rendering)
-_VAO_ARR_CNT_MAX   = np.clip(int(os.getenv('CHK_DIS')), 0, _CHK_DIS ** 3)
+_VAO_ARR_CNT_MAX   = np.clip(int(os.getenv('VAO_ARR_CNT_MAX')), 0, _CHK_DIS ** 3)
 
 _LIT_POS           = tuple(map(float, os.getenv('LIT_POS').split(',')))
 _LIT_RAD           = float(os.getenv('LIT_RAD'))
@@ -515,6 +515,7 @@ def _DIS_2(POS_A, POS_B):
 def _DIS_3(POS_A, POS_B):
     return math.sqrt((POS_A[0] - POS_B[0]) ** 2 + (POS_A[1] - POS_B[1]) ** 2 + (POS_A[2] - POS_B[2]) ** 2)
 
+_REQ_QUE_SET = set()
 _REQ_QUE = Queue() # FIFO (thread skips chunks out-of-range)
 _RES_QUE = Queue() # FIFO
 _THD_ARR = []
@@ -669,7 +670,7 @@ def _THD_FUN(CAM_POS, REQ_QUE, RES_QUE):
         GEN_VER_ARR = np.array(GEN_VER_ARR, dtype=np.float32)
         GEN_IDX_ARR = np.array(GEN_IDX_ARR, dtype=np.uint32)
         
-        debug.__DBG(debug._TAG_THD, ['C_POS'], [C_POS])
+        #debug.__DBG(debug._TAG_THD, ['C_POS'], [C_POS])
         
         RES_QUE.put((C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR))
         
@@ -703,8 +704,6 @@ def _THD_ARR_END():
 
 
 
-_CHK_OLD_SET = set()
-
 def _GEN_MAP(POS, SIZ=_SIZ):
     
     # STOP _REQ_QUE FROM GROWING TOO BIG (moving to new chunks causes explosive growth, so mitigate it)
@@ -727,18 +726,15 @@ def _GEN_MAP(POS, SIZ=_SIZ):
                 
                 DIS = _DIS_3(POS, C_POS)
                 
-                if DIS <= _CHK_DIS and C_POS not in _CHK_OLD_SET:
+                if DIS <= _CHK_DIS and C_POS not in _VAO_ARR and C_POS not in _REQ_QUE_SET:
                     REN_ARR.append((DIS, C_POS))
     
     REN_ARR.sort() # sorts by first item in tuple ; maybe also sort by chunks in front of camera: .sort(key=lambda C: (C[1], C[0]))
     
     for DIS, C_POS in REN_ARR:
-        if C_POS not in _VAO_ARR:
-            #CHK_OLD_SET[C_POS] = True
-            _CHK_OLD_SET.add(C_POS)
-            
-            _REQ_QUE.put((C_POS, SIZ))
-            #_REQ_QUE.put((DIS, C_POS, SIZ, time.time())) # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
+        _REQ_QUE_SET.add(C_POS) # can't iterate through _REQ_QUE since it's Queue, so use sep set
+        _REQ_QUE.put((C_POS, SIZ))
+        #_REQ_QUE.put((DIS, C_POS, SIZ, time.time())) # NEW _REQ_QUE PARAMS -> PRIORITY BY DISTANCE
     
     ''' maybe reuse something like this later for other purposes (purposes aka far chunk cleanup ... done in main loop)
     REN_SET_REM = set(_VAO_ARR.keys()) - set(C[1] for C in REN_ARR)
@@ -1011,6 +1007,7 @@ def main():
         while not _RES_QUE.empty() and CHK_TIC_CNT < CHK_TIC_MAX:
             try:
                 C_POS, CHK, GEN_VER_ARR, GEN_IDX_ARR = _RES_QUE.get_nowait()
+                _REQ_QUE_SET.discard(C_POS)
                 #_MAP._CHK_ADD_MAN(C_POS, CHK) # what is this for exactly?
                 
                 #T_A = time.perf_counter()
@@ -1065,16 +1062,27 @@ def main():
         
         
         if len(_VAO_ARR) > _VAO_ARR_CNT_MAX:
+            _VAO_ARR_CNT_DIF = len(_VAO_ARR) - _VAO_ARR_CNT_MAX
+            
+            CHK_DIS_CUR = _CHK_DIS
+            
             C_POS_REM_ARR = []
             
-            # first all chunks out of render, then chunks within render starting from farthest
+            while _VAO_ARR_CNT_DIF > 0:
+                debug.__DBG(debug._TAG_DBG, ['_VAO_ARR cleanup'], [f'chunks @ {CHK_DIS_CUR}'])
+                
+                for C_POS in _VAO_ARR.keys():
+                    if _DIS_3(POS, C_POS) > CHK_DIS_CUR:
+                        C_POS_REM_ARR.append(C_POS)
+                        
+                        _VAO_ARR_CNT_DIF -= 1
+                
+                CHK_DIS_CUR -= 1
+                
+                if CHK_DIS_CUR <= 0:
+                    debug.__DBG(debug._TAG_ERR, ['_VAO_ARR cleanup'], ['critical error'])
             
-            #for D in range(_CHK_DIS, 0):
-                #
-            
-            for C_POS in _VAO_ARR.keys():
-                if _DIS_3(POS, C_POS) > _CHK_DIS: #+ 2: # +2 for hysteresis (whatever that means)
-                    C_POS_REM_ARR.append(C_POS)
+            debug.__DBG(debug._TAG_DBG, ['_VAO_ARR cleanup'], [f'deleting {len(C_POS_REM_ARR)} chunks'])
             
             for C_POS in C_POS_REM_ARR:
                 VAO, _, VBO, EBO = _VAO_ARR[C_POS]
@@ -1087,11 +1095,9 @@ def main():
                 
                 del _VAO_ARR[C_POS]
                 
-                debug.__DBG(debug._TAG_DBG, ['_VAO_ARR', '@'], ['del', C_POS])
+                _REQ_QUE_SET.discard(C_POS) # not needed because it's already gone from this set once vao arr processes that chunk
                 
-                _CHK_OLD_SET.discard(C_POS) # also remove from old chunk set
-                
-                # _MAP.CHK_DEL_MAN(C_POS) # also remove from chunk map arr
+                #debug.__DBG(debug._TAG_DBG, ['_VAO_ARR', '@'], ['del', C_POS])
         
         
         
