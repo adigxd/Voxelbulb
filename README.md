@@ -1,10 +1,10 @@
 # Voxelbulb
 
-Elite Mandelbulb simulator
+Elite Mandelbulb simulator 🦾
 
-Comes with free post-processing shaders inside:
-- Edge-detect
-- Dithering
+Comes with free post-processing shaders inside 😉:
+- Edge-detect 📐
+- Dithering 🎲
 
 ### Run w/ CLI:
 - `pip install -r requirements.txt`
