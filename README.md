@@ -8,5 +8,7 @@ Elite Mandelbulb simulator
 - hf
 
 <hr/>
+
 ### Embedded Demo (let it load):
+
 ![](DIR-Screenshots/GIF-0.gif)
