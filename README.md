@@ -1,6 +1,6 @@
 # Voxelbulb
 
-Elite Mandelbulb simulator
+Elite Mandelbulb simulator; comes with free post-processing shaders ;)
 
 ### Run w/ CLI:
 - `pip install -r requirements.txt`
