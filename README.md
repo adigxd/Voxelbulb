@@ -2,7 +2,7 @@
 
 Elite Mandelbulb simulator 🦾
 
-Comes with free post-processing shaders inside 😉:
+Comes with free post-processing shaders inside:
 - Edge-detect 📐
 - Dithering 🎲
 
