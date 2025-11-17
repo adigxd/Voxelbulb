@@ -7,9 +7,10 @@ Comes with free post-processing shaders inside:
 - Dithering 🎲
 
 ### Run w/ CLI:
-- `pip install -r requirements.txt`
-- `python graphics_mdb.py`
-- hf!
+```shell
+pip install -r requirements.txt
+python graphics_mdb.py
+```
 
 <hr/>
 
