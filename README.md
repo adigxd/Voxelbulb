@@ -9,7 +9,7 @@ Comes with free post-processing shaders inside:
 ### Run w/ CLI:
 - `pip install -r requirements.txt`
 - `python graphics_mdb.py`
-- hf
+- hf!
 
 <hr/>
 
