@@ -2,7 +2,7 @@
 
 Elite Mandelbulb simulator 🦾
 
-Comes with free post-processing shaders (\\):
+Comes with free post-processing shaders (hotkey: backslash):
 - Edge-detect 📐
 - Dithering 🎲
 
