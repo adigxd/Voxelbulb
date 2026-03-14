@@ -1,2 +1,2 @@
 @echo off
-cmd /k cd %USERPROFILE%\Desktop\code\rndyz
+cmd /k cd %USERPROFILE%\Desktop\code\Voxelbulb

@@ -1,3 +1,7 @@
+*Deprecated on 2026/03/14*
+
+---
+
 # Voxelbulb
 
 Elite Mandelbulb simulator
