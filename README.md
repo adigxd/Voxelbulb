@@ -1,4 +1,4 @@
-*2025-09-30 > Deprecated*
+*2025-09-30: Deprecated*
 
 ---
 
