@@ -4,10 +4,10 @@
 
 # Voxelbulb
 
-Elite Mandelbulb simulator 🦾
+Elite Mandelbulb simulator
 
 Comes with free post-processing shaders (hotkey: backslash):
-- Edge-detect 📐
+- Edge-detection 📐
 - Dithering 🎲
 
 ### Run w/ CLI:
