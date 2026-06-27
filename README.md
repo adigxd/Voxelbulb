@@ -4,7 +4,7 @@
 
 # Voxelbulb
 
-Elite Mandelbulb simulator
+Elite [Mandelbulb](https://en.wikipedia.org/wiki/Mandelbulb) simulator
 
 Comes with free post-processing shaders (hotkey: backslash):
 - Edge-detection 📐
